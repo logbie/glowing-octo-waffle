@@ -12,7 +12,8 @@ namespace MediaWiki;
 class accessControl
 {
     public function loadUserGroups($wgGroupPermissions){
-        $wgGroupPermissions['blah']['edit'] = "true";
+        $wgGroupPermissions['trusted']['edit'] = "true";
+        $wgGroupPermissions['Tori']['edit'] = "true";
         return $wgGroupPermissions;
     }
 }
