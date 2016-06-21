@@ -85,6 +85,10 @@ require_once "$IP/includes/GlobalFunctions.php";
 if ( is_readable( "$IP/vendor/autoload.php" ) ) {
 	require_once "$IP/vendor/autoload.php";
 }
+#load user Groups
+#require_once "$IP/includes/user.php";
+$userGroups = new \MediaWiki\accessControl();
+$userGroups->loadUserGroups($wgGroupPermissions);
 
 # Assert that composer dependencies were successfully loaded
 # Purposely no leading \ due to it breaking HHVM RepoAuthorative mode
