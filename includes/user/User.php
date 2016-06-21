@@ -1,4 +1,8 @@
 <?php
+
+
+namespace MediaWiki\User;
+
 /**
  * Implements the User class for the %MediaWiki software.
  *
@@ -26,6 +30,7 @@ use MediaWiki\Session\Token;
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Auth\AuthenticationRequest;
+
 
 /**
  * String Some punctuation to prevent editing from broken text-mangling proxies.
