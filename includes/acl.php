@@ -6,6 +6,7 @@
  * Time: 8:03 PM
  */
 
+namespace MediaWiki\Groups;
 
 class accessControl
 {
