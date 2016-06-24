@@ -1546,4 +1546,5 @@ $wgAutoloadLocalClasses = [
 	'ZipDirectoryReader' => __DIR__ . '/includes/utils/ZipDirectoryReader.php',
 	'ZipDirectoryReaderError' => __DIR__ . '/includes/utils/ZipDirectoryReader.php',
 	'profile_point' => __DIR__ . '/profileinfo.php',
+	'specialgroupmanager' => __DIR__ . '/includes/specials/specialgroupmanager.php',
 ];
