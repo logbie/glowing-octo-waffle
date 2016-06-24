@@ -1545,6 +1545,6 @@ $wgAutoloadLocalClasses = [
 	'ZhConverter' => __DIR__ . '/languages/classes/LanguageZh.php',
 	'ZipDirectoryReader' => __DIR__ . '/includes/utils/ZipDirectoryReader.php',
 	'ZipDirectoryReaderError' => __DIR__ . '/includes/utils/ZipDirectoryReader.php',
+	'groupmanagerpage' => __DIR__ . '/includes/specials/specialgroupmanager.php',
 	'profile_point' => __DIR__ . '/profileinfo.php',
-	'specialgroupmanager' => __DIR__ . '/includes/specials/specialgroupmanager.php',
 ];
