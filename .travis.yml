@@ -53,6 +53,4 @@ script:
 
 notifications:
   email: false
-    on_success: change
-    on_failure: change
-    skip_join: true
+
