@@ -102,4 +102,4 @@ class AutoLoader {
 	}
 }
 
-spl_autoload_register('AutoLoader', 'autoload');
+spl_autoload_register( ['AutoLoader', 'autoload'] );
