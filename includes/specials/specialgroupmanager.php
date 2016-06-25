@@ -6,11 +6,11 @@
  * Date: 6/23/2016
  * Time: 9:18 PM
  */
-class groupmanagerpage extends SpecialPage
+class usergroupmanagerpage extends SpecialPage
 {
 
     function __construct() {
-        parent::__construct( 'groupmanager' );
+        parent::__construct( 'usergroupmanager' );
     }
 
     function getGroupName()

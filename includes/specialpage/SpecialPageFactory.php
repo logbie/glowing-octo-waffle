@@ -186,7 +186,7 @@ class SpecialPageFactory {
 		'Specialpages' => 'SpecialSpecialpages',
 		
 		//Adminsitration
-		'groupmanager' => 'groupmanagerpage',
+		'usergroupmanager' => 'usergroupmanagerpage',
 	];
 
 	private static $list;

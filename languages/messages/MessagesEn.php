@@ -512,7 +512,7 @@ $specialPageAliases = [
 	'Watchlist'                 => [ 'Watchlist' ],
 	'Whatlinkshere'             => [ 'WhatLinksHere' ],
 	'Withoutinterwiki'          => [ 'WithoutInterwiki' ],
-	'Group Manager'              => [ 'groupManager'],
+	'Group Manager'              => [ 'usergroupManager'],
 ];
 
 /**
