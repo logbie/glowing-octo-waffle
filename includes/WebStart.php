@@ -85,6 +85,9 @@ require_once "$IP/includes/GlobalFunctions.php";
 if ( is_readable( "$IP/vendor/autoload.php" ) ) {
 	require_once "$IP/vendor/autoload.php";
 }
+#load user Groups
+$userGroups = new \MediaWiki\accessControl();
+$userGroups = $userGroups->loadUserGroups($wgGroupPermissions);
 
 # Assert that composer dependencies were successfully loaded
 # Purposely no leading \ due to it breaking HHVM RepoAuthorative mode
@@ -122,6 +125,8 @@ if ( defined( 'MW_CONFIG_CALLBACK' ) ) {
 
 	# Include site settings. $IP may be changed (hopefully before the AutoLoader is invoked)
 	require_once MW_CONFIG_FILE;
+
+
 }
 
 # Initialise output buffering
@@ -141,6 +146,10 @@ if ( !defined( 'MW_NO_SETUP' ) ) {
 if ( isset( $_SERVER['REQUEST_METHOD'] ) && $_SERVER['REQUEST_METHOD'] === 'POST' ) {
 	ignore_user_abort( true );
 }
+
+#load user Groups
+$userGroups = new \MediaWiki\accessControl();
+$wgGroupPermissions = $userGroups->loadUserGroups($wgGroupPermissions);
 
 if ( !defined( 'MW_API' ) &&
 	RequestContext::getMain()->getRequest()->getHeader( 'Promise-Non-Write-API-Action' )

@@ -29,7 +29,7 @@ branches:
   # wikimedia/mediawiki and then push changes they like to test to branches like
   # "travis-ci/test-this-awesome-change".
   only:
-    - master
+    - DevBranch
     - /^travis-ci\/.*$/
 
 before_install:

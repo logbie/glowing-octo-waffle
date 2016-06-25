@@ -184,6 +184,9 @@ class SpecialPageFactory {
 		'Revisiondelete' => 'SpecialRevisionDelete',
 		'RunJobs' => 'SpecialRunJobs',
 		'Specialpages' => 'SpecialSpecialpages',
+		
+		//Adminsitration
+		'groupmanager' => 'groupmanagerpage',
 	];
 
 	private static $list;
