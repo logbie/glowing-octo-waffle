@@ -72,7 +72,7 @@ class LBFactoryTest extends MediaWikiTestCase {
 
 		#$factory->shutdown();
 		#$lb->closeAll();
-	}
+	#}
 
 	public function testLBFactorySimpleServers() {
 		global $wgDBserver, $wgDBname, $wgDBuser, $wgDBpassword, $wgDBtype;
