@@ -351,7 +351,7 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 		MediaWiki\Session\SessionManager::resetCache();
 	}
 
-	public function run( PHPUnit_Framework_TestResult $result = null ) {
+/*	public function run( PHPUnit_Framework_TestResult $result = null ) {
 		// Reset all caches between tests.
 		$this->doLightweightServiceReset();
 
@@ -392,7 +392,7 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 		if ( $needsResetDB ) {
 			$this->resetDB( $this->db, $this->tablesUsed );
 		}
-	}
+	}*/
 
 	/**
 	 * @return bool
