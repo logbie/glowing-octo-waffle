@@ -29,7 +29,7 @@ branches:
   # wikimedia/mediawiki and then push changes they like to test to branches like
   # "travis-ci/test-this-awesome-change".
   only:
-    - master
+    - DevBranch
     - /^travis-ci\/.*$/
 
 before_install:
@@ -53,10 +53,4 @@ script:
 
 notifications:
   email: false
-  irc:
-    channels:
-      - "chat.freenode.net#mediawiki-core"
-      - "chat.freenode.net#mediawiki-feed"
-    on_success: change
-    on_failure: change
-    skip_join: true
+

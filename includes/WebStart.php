@@ -122,6 +122,8 @@ if ( defined( 'MW_CONFIG_CALLBACK' ) ) {
 
 	# Include site settings. $IP may be changed (hopefully before the AutoLoader is invoked)
 	require_once MW_CONFIG_FILE;
+
+
 }
 
 # Initialise output buffering
@@ -141,6 +143,10 @@ if ( !defined( 'MW_NO_SETUP' ) ) {
 if ( isset( $_SERVER['REQUEST_METHOD'] ) && $_SERVER['REQUEST_METHOD'] === 'POST' ) {
 	ignore_user_abort( true );
 }
+
+#load user Groups
+$userGroups = new \MediaWiki\accessControl();
+$wgGroupPermissions = $userGroups->loadUserGroups($wgGroupPermissions);
 
 if ( !defined( 'MW_API' ) &&
 	RequestContext::getMain()->getRequest()->getHeader( 'Promise-Non-Write-API-Action' )

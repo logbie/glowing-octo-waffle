@@ -892,6 +892,7 @@ $wgAutoloadLocalClasses = [
 	'MediaWiki\\Widget\\SearchInputWidget' => __DIR__ . '/includes/widget/SearchInputWidget.php',
 	'MediaWiki\\Widget\\TitleInputWidget' => __DIR__ . '/includes/widget/TitleInputWidget.php',
 	'MediaWiki\\Widget\\UserInputWidget' => __DIR__ . '/includes/widget/UserInputWidget.php',
+	'MediaWiki\\accessControl' => __DIR__ . '/includes/user/acl.php',
 	'MemCachedClientforWiki' => __DIR__ . '/includes/compat/MemcachedClientCompat.php',
 	'MemcLockManager' => __DIR__ . '/includes/filebackend/lockmanager/MemcLockManager.php',
 	'MemcachedBagOStuff' => __DIR__ . '/includes/libs/objectcache/MemcachedBagOStuff.php',
@@ -1545,4 +1546,5 @@ $wgAutoloadLocalClasses = [
 	'ZipDirectoryReader' => __DIR__ . '/includes/utils/ZipDirectoryReader.php',
 	'ZipDirectoryReaderError' => __DIR__ . '/includes/utils/ZipDirectoryReader.php',
 	'profile_point' => __DIR__ . '/profileinfo.php',
+	'usergroupmanagerpage' => __DIR__ . '/includes/specials/specialgroupmanager.php',
 ];
