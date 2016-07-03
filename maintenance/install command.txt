@@ -1,0 +1,1 @@
+php install.php --scriptpath '/' --server 'http://jenkins.logbie.com' --dbuser 'root' --dbpass 'rootpass' --pass 'test' wikitest ke5crz

@@ -30,7 +30,7 @@ class accessControl
         {
 
             unset($wgGroupPermissions);
-            $usrgroupsarray = fopen($usrfile, "w+");
+            $usrgroupsarray = file_get_contents($usrfile, "w+");
             $wgGroupPermissions = json_decode($usrgroupsarray, true);
 
         }
