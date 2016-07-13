@@ -747,6 +747,7 @@
 	"content-model-css": "CSS",
 	"content-json-empty-object": "Пусты аб’ект",
 	"content-json-empty-array": "Пусты масіў",
+	"deprecated-self-close-category": "Старонкі зь няслушнымі самазакрытымі HTML-тэгамі",
 	"duplicate-args-warning": "<strong>Папярэджаньне:</strong> [[:$1]] выклікае [[:$2]] з больш чым адным значэньнем парамэтру «$3». Толькі апошняе з пададзеных значэньняў будзе ўжытае.",
 	"duplicate-args-category": "Старонкі, на якіх у шаблёнах выкарыстоўваюцца парамэтры-дублікаты",
 	"duplicate-args-category-desc": "Старонкі, якія ўтрымліваюць шаблёны з парамэтрамі-дублікатамі, напрыклад, <code><nowiki>{{foo|bar=1|bar=2}}</nowiki></code> або <code><nowiki>{{foo|bar|1=baz}}</nowiki></code>.",
@@ -1884,6 +1885,8 @@
 	"trackingcategories-msg": "Катэгорыя, якая патрабуе ўвагі",
 	"trackingcategories-name": "Назва паведамленьня",
 	"trackingcategories-desc": "Крытэр уключэньня ў катэгорыю",
+	"restricted-displaytitle-ignored": "Старонкі, дзе ігнаруюцца назвы для адлюстраваньня",
+	"restricted-displaytitle-ignored-desc": "Старонка ігнаруе <code><nowiki>{{DISPLAYTITLE}}</nowiki></code>, бо ён не супадае зь цяперашняй назвай старонкі.",
 	"noindex-category-desc": "Гэтая старонка не індэксуецца пошукавымі робатамі, таму што на ёй маецца магічнае слова <code><nowiki>__NOINDEX__</nowiki></code>, а старонка знаходзіцца ў прасторы назваў, дзе дазволны гэты сьцяг.",
 	"index-category-desc": "На старонцы знаходзіцца магічнае слова <code><nowiki>__INDEX__</nowiki></code> (пры гэтым старонка знаходзіцца ў прасторы назваў, дзе дазволены гэты сьцяг), таму яна індэксуецца пошукавымі робатамі ў тых выпадках, калі звычайна гэтага не адбываецца.",
 	"post-expand-template-inclusion-category-desc": "Памер старонкі перавысіў <code>$wgMaxArticleSize</code> пасьля разгортваньня ўсіх шаблёнаў, таму некаторыя шаблёны не былі паказаныя цалкам.",
@@ -2008,6 +2011,7 @@
 	"rollbacklinkcount": "адкаціць $1 {{PLURAL:$1|рэдагаваньне|рэдагаваньні|рэдагаваньняў}}",
 	"rollbacklinkcount-morethan": "адкаціць больш за $1 {{PLURAL:$1|рэдагаваньне|рэдагаваньні|рэдагаваньняў}}",
 	"rollbackfailed": "Памылка адкату",
+	"rollback-missingparam": "У запыце адсутнічаюць абавязковыя парамэтры.",
 	"cantrollback": "Немагчыма адкаціць зьмену; апошні рэдактар — адзіны аўтар гэтай старонкі.",
 	"alreadyrolled": "Немагчыма адкаціць апошнюю зьмену [[:$1]], якую {{GENDER:$2|зрабіў|зрабіла}} [[User:$2|$2]] ([[User talk:$2|гутаркі]]{{int:pipe-separator}}[[Special:Contributions/$2|{{int:contribslink}}]]); нехта іншы ўжо зьмяніў старонку альбо адкаціў зьмены.\n\nАпошнія зьмены зробленыя [[User:$3|$3]] ([[User talk:$3|гутаркі]]{{int:pipe-separator}}[[Special:Contributions/$3|{{int:contribslink}}]]).",
 	"editcomment": "Кароткае апісаньне зьменаў было: <em>$1</em>.",
@@ -2026,6 +2030,7 @@
 	"changecontentmodel-success-text": "Тып зьместу [[:$1]] быў зьменены.",
 	"changecontentmodel-cannot-convert": "Зьмест [[:$1]] ня можа быць ператвораны ў тып $2.",
 	"changecontentmodel-nodirectediting": "Мадэль зьместу $1 не падтрымлівае наўпроставае рэдагаваньне",
+	"changecontentmodel-emptymodels-title": "Няма даступных мадэляў зьместу",
 	"log-name-contentmodel": "Журнал зьменаў мадэляў зьместу",
 	"log-description-contentmodel": "Падзеі, зьвязаныя з мадэлямі зьместу старонак",
 	"logentry-contentmodel-change": "$1 {{GENDER:$2|зьмяніў|зьмяніла}} мадэль зьместу старонкі $3 з «$4» на «$5»",
@@ -3579,6 +3584,7 @@
 	"mw-widgets-dateinput-placeholder-month": "ГГГГ-ММ",
 	"mw-widgets-titleinput-description-new-page": "старонка яшчэ не існуе",
 	"mw-widgets-titleinput-description-redirect": "перанакіраваньне на $1",
-	"api-error-blacklisted": "Калі ласка, выбярыце іншую, апісальную назву.",
-	"randomrootpage": "Выпадковая карэнная старонка"
+	"randomrootpage": "Выпадковая карэнная старонка",
+	"changecredentials": "Зьмена ўліковых зьвестак",
+	"removecredentials": "Выдаленьне ўліковых зьвестак"
 }

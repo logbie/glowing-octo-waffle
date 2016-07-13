@@ -48,7 +48,8 @@
 			"Gts-tg",
 			"Nemo bis",
 			"Αντιγόνη",
-			"Matma Rex"
+			"Matma Rex",
+			"Ανώνυμος Βικιπαιδιστής"
 		]
 	},
 	"tog-underline": "Υπογράμμιση συνδέσμων:",
@@ -3532,9 +3533,9 @@
 	"mw-widgets-dateinput-placeholder-month": "ΕΕΕΕ-ΜΜ",
 	"mw-widgets-titleinput-description-new-page": "η σελίδα που δεν υπάρχει ακόμα",
 	"mw-widgets-titleinput-description-redirect": "ανακατεύθυνση στο $1",
-	"api-error-blacklisted": "Παρακαλώ επιλέξτε ένα διαφορετικό, περιγραφικό τίτλο.",
 	"sessionprovider-generic": "$1 συνεδρίες",
 	"sessionprovider-mediawiki-session-cookiesessionprovider": "συνεδρίες με βάση τα cookies",
 	"sessionprovider-nocookies": "Τα Cookies μπορούν να απενεργοποιηθούν. Βεβαιωθείτε ότι έχετε ενεργοποιημένα τα cookies και ξεκινήστε πάλι.",
-	"randomrootpage": "Τυχαία κύρια σελίδα"
+	"randomrootpage": "Τυχαία κύρια σελίδα",
+	"log-action-filter-rights": "Πληκτρολογήστε για αλλαγή δικαιωμάτων:"
 }
