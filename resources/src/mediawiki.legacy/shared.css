@@ -91,6 +91,13 @@ abbr[title],
 	}
 }
 
+/* Comment portions of RC entries */
+span.comment {
+	font-style: italic;
+	unicode-bidi: -moz-isolate;
+	unicode-bidi: isolate;
+}
+
 /**
  * Add a bit of margin space between the preview and the toolbar.
  * This replaces the ugly <p><br /></p> we used to insert into the page source
@@ -690,31 +697,6 @@ ol:lang(or) li {
 #mw-usercsspreview,
 #mw-userjspreview {
 	direction: ltr;
-	unicode-bidi: embed;
-}
-
-/* Correct user & content directionality when viewing a diff */
-.diff-currentversion-title,
-.diff {
-	direction: ltr;
-	unicode-bidi: embed;
-}
-
-/* @noflip */ .diff-contentalign-right td {
-	direction: rtl;
-	unicode-bidi: embed;
-}
-
-/* @noflip */ .diff-contentalign-left td {
-	direction: ltr;
-	unicode-bidi: embed;
-}
-
-.diff-multi,
-.diff-otitle,
-.diff-ntitle,
-.diff-lineno {
-	direction: ltr !important;
 	unicode-bidi: embed;
 }
 

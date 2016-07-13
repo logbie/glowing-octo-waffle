@@ -1504,6 +1504,8 @@
 	"upload-http-error": "發生 HTTP 錯誤：$1",
 	"upload-copy-upload-invalid-domain": "此網域不允許複製上傳的檔案。",
 	"upload-foreign-cant-upload": "此 wiki 未設定可上傳來自遠端檔案庫的請求的檔案。",
+	"upload-foreign-cant-load-config": "載入要上傳檔案到遠端檔案儲存庫的設定失敗。",
+	"upload-dialog-disabled": "此 wiki 已關閉使用此對話框上傳檔案的功能。",
 	"upload-dialog-title": "上傳檔案",
 	"upload-dialog-button-cancel": "取消",
 	"upload-dialog-button-done": "完成",
@@ -3580,7 +3582,7 @@
 	"limitreport-cputime-value": "$1 秒",
 	"limitreport-walltime": "實際使用時間",
 	"limitreport-walltime-value": "$1 秒",
-	"limitreport-ppvisitednodes": "預處理器已訪問節點計數",
+	"limitreport-ppvisitednodes": "前置處理器造訪節點計數",
 	"limitreport-ppgeneratednodes": "預處理器產生節點次數",
 	"limitreport-postexpandincludesize": "展開後的引用大小",
 	"limitreport-postexpandincludesize-value": "$1/$2 個{{PLURAL:$2|位元組}}",
@@ -3676,7 +3678,6 @@
 	"mw-widgets-dateinput-no-date": "未選擇日期",
 	"mw-widgets-titleinput-description-new-page": "頁面不存在",
 	"mw-widgets-titleinput-description-redirect": "重新導向至 $1",
-	"api-error-blacklisted": "請選擇另一個更具描述性的標題。",
 	"sessionmanager-tie": "無法合併多個請求認証類型：$1。",
 	"sessionprovider-generic": "$1 連線階段",
 	"sessionprovider-mediawiki-session-cookiesessionprovider": "以 cookie 為基礎的連線階段",
@@ -3801,5 +3802,6 @@
 	"linkaccounts-success-text": "已連結帳號。",
 	"linkaccounts-submit": "連結帳號",
 	"unlinkaccounts": "取消連結帳號",
-	"unlinkaccounts-success": "已取消連結帳號。"
+	"unlinkaccounts-success": "已取消連結帳號。",
+	"authenticationdatachange-ignored": "認証資料變更未被處理，可能未設定提供者？"
 }

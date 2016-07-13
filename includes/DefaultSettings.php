@@ -1444,7 +1444,7 @@ $wgGalleryOptions = [
 	'imagesPerRow' => 0, // Default number of images per-row in the gallery. 0 -> Adapt to screensize
 	'imageWidth' => 120, // Width of the cells containing images in galleries (in "px")
 	'imageHeight' => 120, // Height of the cells containing images in galleries (in "px")
-	'captionLength' => 25, // Length of caption to truncate (in characters)
+	'captionLength' => 25, // Length to truncate filename to in caption when using "showfilename"
 	'showBytes' => true, // Show the filesize in bytes in categories
 	'mode' => 'traditional',
 ];
@@ -4216,6 +4216,8 @@ $wgAllowImageTag = false;
  *    - RaggettInternalHHVM: Use the limited-functionality HHVM extension
  *    - RaggettInternalPHP: Use the PECL extension
  *    - RaggettExternal: Shell out to an external binary (tidyBin)
+ *    - Html5Depurate: Use external Depurate service
+ *    - Html5Internal: Use the built-in HTML5 balancer
  *
  *  - tidyConfigFile: Path to configuration file for any of the Raggett drivers
  *  - debugComment: True to add a comment to the output with warning messages
@@ -8059,10 +8061,9 @@ $wgUpdateRowsPerQuery = 100;
 
 /**
  * Name of the external diff engine to use. Supported values:
- * * false: default PHP implementation
- * * 'wikidiff2': Wikimedia's fast difference engine implemented as a PHP/HHVM module
- * * 'wikidiff' and 'wikidiff3' are treated as false for backwards compatibility
- * * any other string is treated as a path to external diff executable
+ * * string: path to an external diff executable
+ * * false: wikidiff2 PHP/HHVM module if installed, otherwise the default PHP implementation
+ * * 'wikidiff', 'wikidiff2', and 'wikidiff3' are treated as false for backwards compatibility
  */
 $wgExternalDiffEngine = false;
 
