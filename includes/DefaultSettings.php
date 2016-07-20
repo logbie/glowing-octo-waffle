@@ -1444,7 +1444,10 @@ $wgGalleryOptions = [
 	'imagesPerRow' => 0, // Default number of images per-row in the gallery. 0 -> Adapt to screensize
 	'imageWidth' => 120, // Width of the cells containing images in galleries (in "px")
 	'imageHeight' => 120, // Height of the cells containing images in galleries (in "px")
-	'captionLength' => 25, // Length to truncate filename to in caption when using "showfilename"
+	'captionLength' => true, // Deprecated @since 1.28
+	                         // Length to truncate filename to in caption when using "showfilename".
+	                         // A value of 'true' will truncate the filename to one line using CSS
+	                         // and will be the behaviour after deprecation.
 	'showBytes' => true, // Show the filesize in bytes in categories
 	'mode' => 'traditional',
 ];
@@ -2881,15 +2884,6 @@ $wgDummyLanguageCodes = [
 	'zh-min-nan' => 'nan',
 	'zh-yue' => 'yue',
 ];
-
-/**
- * Character set for use in the article edit box. Language-specific encodings
- * may be defined.
- *
- * This historic feature is one of the first that was added by former MediaWiki
- * team leader Brion Vibber, and is used to support the Esperanto x-system.
- */
-$wgEditEncoding = '';
 
 /**
  * Set this to true to replace Arabic presentation forms with their standard

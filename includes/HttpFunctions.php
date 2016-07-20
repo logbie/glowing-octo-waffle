@@ -125,47 +125,6 @@ class Http {
 	}
 
 	/**
-	 * Check if the URL can be served by localhost
-	 *
-	 * @param string $url Full url to check
-	 * @return bool
-	 */
-	public static function isLocalURL( $url ) {
-		global $wgCommandLineMode, $wgLocalVirtualHosts;
-
-		if ( $wgCommandLineMode ) {
-			return false;
-		}
-
-		// Extract host part
-		$matches = [];
-		if ( preg_match( '!^http://([\w.-]+)[/:].*$!', $url, $matches ) ) {
-			$host = $matches[1];
-			// Split up dotwise
-			$domainParts = explode( '.', $host );
-			// Check if this domain or any superdomain is listed as a local virtual host
-			$domainParts = array_reverse( $domainParts );
-
-			$domain = '';
-			$countParts = count( $domainParts );
-			for ( $i = 0; $i < $countParts; $i++ ) {
-				$domainPart = $domainParts[$i];
-				if ( $i == 0 ) {
-					$domain = $domainPart;
-				} else {
-					$domain = $domainPart . '.' . $domain;
-				}
-
-				if ( in_array( $domain, $wgLocalVirtualHosts ) ) {
-					return true;
-				}
-			}
-		}
-
-		return false;
-	}
-
-	/**
 	 * A standard user-agent we can use for external requests.
 	 * @return string
 	 */
@@ -194,7 +153,7 @@ class Http {
 	}
 
 	/**
-	 * Gets the relevant proxy from $wgHTTPProxy/http_proxy (when set).
+	 * Gets the relevant proxy from $wgHTTPProxy
 	 *
 	 * @return mixed The proxy address or an empty string if not set.
 	 */
@@ -203,11 +162,6 @@ class Http {
 
 		if ( $wgHTTPProxy ) {
 			return $wgHTTPProxy;
-		}
-
-		$envHttpProxy = getenv( "http_proxy" );
-		if ( $envHttpProxy ) {
-			return $envHttpProxy;
 		}
 
 		return "";
@@ -393,13 +347,54 @@ class MWHttpRequest {
 			return;
 		}
 
-		// Otherwise, fallback to $wgHTTPProxy/http_proxy (when set) if this is not a machine
+		// Otherwise, fallback to $wgHTTPProxy if this is not a machine
 		// local URL and proxies are not disabled
-		if ( Http::isLocalURL( $this->url ) || $this->noProxy ) {
+		if ( self::isLocalURL( $this->url ) || $this->noProxy ) {
 			$this->proxy = '';
 		} else {
 			$this->proxy = Http::getProxy();
 		}
+	}
+
+	/**
+	 * Check if the URL can be served by localhost
+	 *
+	 * @param string $url Full url to check
+	 * @return bool
+	 */
+	private static function isLocalURL( $url ) {
+		global $wgCommandLineMode, $wgLocalVirtualHosts;
+
+		if ( $wgCommandLineMode ) {
+			return false;
+		}
+
+		// Extract host part
+		$matches = [];
+		if ( preg_match( '!^https?://([\w.-]+)[/:].*$!', $url, $matches ) ) {
+			$host = $matches[1];
+			// Split up dotwise
+			$domainParts = explode( '.', $host );
+			// Check if this domain or any superdomain is listed as a local virtual host
+			$domainParts = array_reverse( $domainParts );
+
+			$domain = '';
+			$countParts = count( $domainParts );
+			for ( $i = 0; $i < $countParts; $i++ ) {
+				$domainPart = $domainParts[$i];
+				if ( $i == 0 ) {
+					$domain = $domainPart;
+				} else {
+					$domain = $domainPart . '.' . $domain;
+				}
+
+				if ( in_array( $domain, $wgLocalVirtualHosts ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	/**
