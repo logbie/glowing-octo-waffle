@@ -129,6 +129,8 @@ class LocalFile extends File {
 	// @note: higher than IDBAccessObject constants
 	const LOAD_ALL = 16; // integer; load all the lazy fields too (like metadata)
 
+	const ATOMIC_SECTION_LOCK = 'LocalFile::lockingTransaction';
+
 	/**
 	 * Create a LocalFile from a title
 	 * Do not call this except from inside a repo class.
@@ -1635,16 +1637,20 @@ class LocalFile extends File {
 		// Purge the source and target files...
 		$oldTitleFile = wfLocalFile( $this->title );
 		$newTitleFile = wfLocalFile( $target );
-		// Hack: the lock()/unlock() pair is nested in a transaction so the locking is not
-		// tied to BEGIN/COMMIT. To avoid slow purges in the transaction, move them outside.
-		$this->getRepo()->getMasterDB()->onTransactionIdle(
-			function () use ( $oldTitleFile, $newTitleFile, $archiveNames ) {
-				$oldTitleFile->purgeEverything();
-				foreach ( $archiveNames as $archiveName ) {
-					$oldTitleFile->purgeOldThumbnails( $archiveName );
+		// To avoid slow purges in the transaction, move them outside...
+		DeferredUpdates::addUpdate(
+			new AutoCommitUpdate(
+				$this->getRepo()->getMasterDB(),
+				__METHOD__,
+				function () use ( $oldTitleFile, $newTitleFile, $archiveNames ) {
+					$oldTitleFile->purgeEverything();
+					foreach ( $archiveNames as $archiveName ) {
+						$oldTitleFile->purgeOldThumbnails( $archiveName );
+					}
+					$newTitleFile->purgeEverything();
 				}
-				$newTitleFile->purgeEverything();
-			}
+			),
+			DeferredUpdates::PRESEND
 		);
 
 		if ( $status->isOK() ) {
@@ -1680,7 +1686,7 @@ class LocalFile extends File {
 
 		$this->lock(); // begin
 		$batch->addCurrent();
-		# Get old version relative paths
+		// Get old version relative paths
 		$archiveNames = $batch->addOlds();
 		$status = $batch->execute();
 		$this->unlock(); // done
@@ -1689,16 +1695,19 @@ class LocalFile extends File {
 			DeferredUpdates::addUpdate( SiteStatsUpdate::factory( [ 'images' => -1 ] ) );
 		}
 
-		// Hack: the lock()/unlock() pair is nested in a transaction so the locking is not
-		// tied to BEGIN/COMMIT. To avoid slow purges in the transaction, move them outside.
-		$that = $this;
-		$this->getRepo()->getMasterDB()->onTransactionIdle(
-			function () use ( $that, $archiveNames ) {
-				$that->purgeEverything();
-				foreach ( $archiveNames as $archiveName ) {
-					$that->purgeOldThumbnails( $archiveName );
+		// To avoid slow purges in the transaction, move them outside...
+		DeferredUpdates::addUpdate(
+			new AutoCommitUpdate(
+				$this->getRepo()->getMasterDB(),
+				__METHOD__,
+				function () use ( $archiveNames ) {
+					$this->purgeEverything();
+					foreach ( $archiveNames as $archiveName ) {
+						$this->purgeOldThumbnails( $archiveName );
+					}
 				}
-			}
+			),
+			DeferredUpdates::PRESEND
 		);
 
 		// Purge the CDN
@@ -1905,19 +1914,19 @@ class LocalFile extends File {
 	}
 
 	/**
-	 * Start a transaction and lock the image for update
-	 * Increments a reference counter if the lock is already held
+	 * Start an atomic DB section and lock the image for update
+	 * or increments a reference counter if the lock is already held
+	 *
 	 * @throws LocalFileLockError Throws an error if the lock was not acquired
 	 * @return bool Whether the file lock owns/spawned the DB transaction
 	 */
 	function lock() {
 		if ( !$this->locked ) {
 			$logger = LoggerFactory::getInstance( 'LocalFile' );
+
 			$dbw = $this->repo->getMasterDB();
-			if ( !$dbw->trxLevel() ) {
-				$dbw->begin( __METHOD__ );
-				$this->lockedOwnTrx = true;
-			}
+			$makesTransaction = !$dbw->trxLevel();
+			$dbw->startAtomic( self::ATOMIC_SECTION_LOCK );
 			// Bug 54736: use simple lock to handle when the file does not exist.
 			// SELECT FOR UPDATE prevents changes, not other SELECTs with FOR UPDATE.
 			// Also, that would cause contention on INSERT of similarly named rows.
@@ -1925,9 +1934,7 @@ class LocalFile extends File {
 			$lockPaths = [ $this->getPath() ]; // represents all versions of the file
 			$status = $backend->lockFiles( $lockPaths, LockManager::LOCK_EX, 10 );
 			if ( !$status->isGood() ) {
-				if ( $this->lockedOwnTrx ) {
-					$dbw->rollback( __METHOD__ );
-				}
+				$dbw->endAtomic( self::ATOMIC_SECTION_LOCK );
 				$logger->warning( "Failed to lock '{file}'", [ 'file' => $this->name ] );
 
 				throw new LocalFileLockError( $status );
@@ -1940,6 +1947,8 @@ class LocalFile extends File {
 					$logger->error( "Failed to unlock '{file}'", [ 'file' => $this->name ] );
 				}
 			} );
+			// Callers might care if the SELECT snapshot is safely fresh
+			$this->lockedOwnTrx = $makesTransaction;
 		}
 
 		$this->locked++;
@@ -1948,15 +1957,17 @@ class LocalFile extends File {
 	}
 
 	/**
-	 * Decrement the lock reference count. If the reference count is reduced to zero, commits
-	 * the transaction and thereby releases the image lock.
+	 * Decrement the lock reference count and end the atomic section if it reaches zero
+	 *
+	 * The commit and loc release will happen when no atomic sections are active, which
+	 * may happen immediately or at some point after calling this
 	 */
 	function unlock() {
 		if ( $this->locked ) {
 			--$this->locked;
-			if ( !$this->locked && $this->lockedOwnTrx ) {
+			if ( !$this->locked ) {
 				$dbw = $this->repo->getMasterDB();
-				$dbw->commit( __METHOD__ );
+				$dbw->endAtomic( self::ATOMIC_SECTION_LOCK );
 				$this->lockedOwnTrx = false;
 			}
 		}
@@ -2282,13 +2293,6 @@ class LocalFileDeleteBatch {
 			}
 		}
 
-		// Lock the filearchive rows so that the files don't get deleted by a cleanup operation
-		// We acquire this lock by running the inserts now, before the file operations.
-		// This potentially has poor lock contention characteristics -- an alternative
-		// scheme would be to insert stub filearchive entries with no fa_name and commit
-		// them in a separate transaction, then run the file ops, then update the fa_name fields.
-		$this->doDBInserts();
-
 		if ( !$repo->hasSha1Storage() ) {
 			// Removes non-existent file from the batch, so we don't get errors.
 			// This also handles files in the 'deleted' zone deleted via revision deletion.
@@ -2301,21 +2305,20 @@ class LocalFileDeleteBatch {
 
 			// Execute the file deletion batch
 			$status = $this->file->repo->deleteBatch( $this->deletionBatch );
-
 			if ( !$status->isGood() ) {
 				$this->status->merge( $status );
 			}
 		}
 
 		if ( !$this->status->isOK() ) {
-			// Critical file deletion error
-			// Roll back inserts, release lock and abort
-			// TODO: delete the defunct filearchive rows if we are using a non-transactional DB
-			$this->file->unlockAndRollback();
+			// Critical file deletion error; abort
+			$this->file->unlock();
 
 			return $this->status;
 		}
 
+		// Copy the image/oldimage rows to filearchive
+		$this->doDBInserts();
 		// Delete image/oldimage rows
 		$this->doDBDeletes();
 

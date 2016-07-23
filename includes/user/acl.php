@@ -34,13 +34,7 @@ class accessControl
             $wgGroupPermissions = json_decode($usrgroupsarray, true);
 
         }
-   
-
-
-        #$usrgroups = fopen("./includes/user/usrgroups.json", "w+");
-
-        $wgGroupPermissions['trusted']['edit'] = "true";
-        $wgGroupPermissions['Tori']['edit'] = "true";
+        
         return $wgGroupPermissions;
     }
 }

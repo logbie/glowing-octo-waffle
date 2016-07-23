@@ -20,6 +20,8 @@
  * @file
  */
 
+use MediaWiki\Logger\LoggerFactory;
+
 /**
  * The edit page/HTML interface (split from Article)
  * The actual database and text munging is still in Article,
@@ -1249,9 +1251,31 @@ class EditPage {
 
 			return $handler->makeEmptyContent();
 		} else {
-			# nasty side-effect, but needed for consistency
-			$this->contentModel = $rev->getContentModel();
-			$this->contentFormat = $rev->getContentFormat();
+			// Content models should always be the same since we error
+			// out if they are different before this point.
+			$logger = LoggerFactory::getInstance( 'editpage' );
+			if ( $this->contentModel !== $rev->getContentModel() ) {
+				$logger->warning( "Overriding content model from current edit {prev} to {new}", [
+					'prev' => $this->contentModel,
+					'new' => $rev->getContentModel(),
+					'title' => $this->getTitle()->getPrefixedDBkey(),
+					'method' => __METHOD__
+				] );
+				$this->contentModel = $rev->getContentModel();
+			}
+
+			// Given that the content models should match, the current selected
+			// format should be supported.
+			if ( !$content->isSupportedFormat( $this->contentFormat ) ) {
+				$logger->warning( "Current revision content format unsupported. Overriding {prev} to {new}", [
+
+					'prev' => $this->contentFormat,
+					'new' => $rev->getContentFormat(),
+					'title' => $this->getTitle()->getPrefixedDBkey(),
+					'method' => __METHOD__
+				] );
+				$this->contentFormat = $rev->getContentFormat();
+			}
 
 			return $content;
 		}
@@ -1286,7 +1310,7 @@ class EditPage {
 			return $this->mPreloadContent;
 		}
 
-		$handler = ContentHandler::getForTitle( $this->getTitle() );
+		$handler = ContentHandler::getForModelID( $this->contentModel );
 
 		if ( $preload === '' ) {
 			return $handler->makeEmptyContent();
@@ -3026,7 +3050,7 @@ class EditPage {
 	 * @param string $summary The text of the summary to display
 	 */
 	protected function showSummaryInput( $isSubjectPreview, $summary = "" ) {
-		global $wgOut, $wgContLang;
+		global $wgOut;
 		# Add a class if 'missingsummary' is triggered to allow styling of the summary line
 		$summaryClass = $this->missingSummary ? 'mw-summarymissed' : 'mw-summary';
 		if ( $isSubjectPreview ) {
@@ -3038,7 +3062,6 @@ class EditPage {
 				return;
 			}
 		}
-		$summary = $wgContLang->recodeForEdit( $summary );
 		$labelText = wfMessage( $isSubjectPreview ? 'subject' : 'summary' )->parse();
 		list( $label, $input ) = $this->getSummaryInput(
 			$summary,
@@ -4175,11 +4198,9 @@ HTML
 	 * @return string
 	 */
 	protected function safeUnicodeOutput( $text ) {
-		global $wgContLang;
-		$codedText = $wgContLang->recodeForEdit( $text );
 		return $this->checkUnicodeCompliantBrowser()
-			? $codedText
-			: $this->makeSafe( $codedText );
+			? $text
+			: $this->makesafe( $text );
 	}
 
 	/**

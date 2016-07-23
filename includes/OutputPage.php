@@ -251,11 +251,6 @@ class OutputPage extends ContextSource {
 	 */
 	protected $styles = [];
 
-	/**
-	 * Whether jQuery is already handled.
-	 */
-	protected $mJQueryDone = false;
-
 	private $mIndexPolicy = 'index';
 	private $mFollowPolicy = 'follow';
 	private $mVaryHeader = [
@@ -2688,6 +2683,11 @@ class OutputPage extends ContextSource {
 			$bodyClasses[] = 'capitalize-all-nouns';
 		}
 
+		// Parser feature migration class
+		// The idea is that this will eventually be removed, after the wikitext
+		// which requires it is cleaned up.
+		$bodyClasses[] = 'mw-hide-empty-elt';
+
 		$bodyClasses[] = $sk->getPageClasses( $this->getTitle() );
 		$bodyClasses[] = 'skin-' . Sanitizer::escapeClass( $sk->getSkinName() );
 		$bodyClasses[] =
@@ -2783,6 +2783,17 @@ class OutputPage extends ContextSource {
 				|| ( $this->mTarget && !in_array( $this->mTarget, $module->getTargets() ) )
 			) {
 				continue;
+			}
+
+			if ( $only === ResourceLoaderModule::TYPE_STYLES ) {
+				if ( $module->getType() !== ResourceLoaderModule::LOAD_STYLES ) {
+					$logger = $resourceLoader->getLogger();
+					$logger->debug( 'Unexpected general module "{module}" in styles queue.', [
+						'module' => $name,
+					] );
+				} else {
+					$links['states'][$name] = 'ready';
+				}
 			}
 
 			$sortedModules[$module->getSource()][$module->getGroup()][$name] = $module;

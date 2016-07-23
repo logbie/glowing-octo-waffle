@@ -35,6 +35,12 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	const TYPE_STYLES = 'styles';
 	const TYPE_COMBINED = 'combined';
 
+	# Desired load type
+	// Module only has styles (loaded via <style> or <link rel=stylesheet>)
+	const LOAD_STYLES = 'styles';
+	// Module may have other resources (loaded via mw.loader from a script)
+	const LOAD_GENERAL = 'general';
+
 	# sitewide core module like a skin file or jQuery component
 	const ORIGIN_CORE_SITEWIDE = 1;
 
@@ -344,6 +350,16 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	}
 
 	/**
+	 * Get the module's load type.
+	 *
+	 * @since 1.28
+	 * @return string ResourceLoaderModule LOAD_* constant
+	 */
+	public function getType() {
+		return self::LOAD_GENERAL;
+	}
+
+	/**
 	 * Get the skip function.
 	 *
 	 * Modules that provide fallback functionality can provide a "skip function". This
@@ -443,7 +459,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 					]
 				);
 
-				$dbw->onTransactionIdle( function () use ( &$scopeLock ) {
+				$dbw->onTransactionResolution( function () use ( &$scopeLock ) {
 					ScopedCallback::consume( $scopeLock ); // release after commit
 				} );
 			}
