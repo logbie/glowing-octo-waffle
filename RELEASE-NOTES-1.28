@@ -22,6 +22,10 @@ production.
 * The deprecated $wgEditEncoding variable has been removed; it was only used
   for Esperanto language character conversion. You are now recommended to use
   input methods provided by the UniversalLanguageSelector extension.
+* When $wgPingback is true, MediaWiki will periodically ping
+  https://www.mediawiki.org/beacon with basic information about the local
+  MediaWiki installation.  This data includes, for example, the type of system,
+  PHP version, and chosen database backend. This behavior is off by default.
 
 === New features in 1.28 ===
 * User::isBot() method for checking if an account is a bot role account.
@@ -68,6 +72,9 @@ changes to languages because of Phabricator reports.
 * Deprecated APIEditBeforeSave hook in favor of EditFilterMergedContent.
 * The 'UploadVerification' hook is deprecated. Use 'UploadVerifyFile' instead.
 * SiteConfiguration::isLocalVHost() was removed (deprecated since 1.25).
+* The 'UserLoginComplete' hook has a new parameter to differentiate between actual
+  login and visiting the login page while already logged in.
+* ResourceLoader::makeLoaderURL() was removed (deprecated since 1.24).
 
 == Compatibility ==
 

@@ -234,7 +234,7 @@ abstract class RevDelList extends RevisionListBase {
 		}
 
 		if ( $status->successCount == 0 ) {
-			$dbw->rollback( __METHOD__ );
+			$dbw->endAtomic( __METHOD__ );
 			return $status;
 		}
 
@@ -244,8 +244,8 @@ abstract class RevDelList extends RevisionListBase {
 		// Move files, if there are any
 		$status->merge( $this->doPreCommitUpdates() );
 		if ( !$status->isOK() ) {
-			// Fatal error, such as no configured archive directory
-			$dbw->rollback( __METHOD__ );
+			// Fatal error, such as no configured archive directory or I/O failures
+			wfGetLBFactory()->rollbackMasterChanges( __METHOD__ );
 			return $status;
 		}
 
