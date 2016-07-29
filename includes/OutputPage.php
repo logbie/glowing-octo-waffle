@@ -23,6 +23,7 @@
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\Session\SessionManager;
 use WrappedString\WrappedString;
+use WrappedString\WrappedStringList;
 
 /**
  * This class should be covered by a general architecture document which does
@@ -250,11 +251,6 @@ class OutputPage extends ContextSource {
 	 */
 	protected $styles = [];
 
-	/**
-	 * Whether jQuery is already handled.
-	 */
-	protected $mJQueryDone = false;
-
 	private $mIndexPolicy = 'index';
 	private $mFollowPolicy = 'follow';
 	private $mVaryHeader = [
@@ -293,6 +289,9 @@ class OutputPage extends ContextSource {
 	 * @var string|null The URL to send in a <link> element with rel=copyright
 	 */
 	private $copyrightUrl;
+
+	/** @var array Profiling data */
+	private $limitReportData = [];
 
 	/**
 	 * Constructor for OutputPage. This should not be called directly.
@@ -606,29 +605,6 @@ class OutputPage extends ContextSource {
 	 */
 	public function addModuleStyles( $modules ) {
 		$this->mModuleStyles = array_merge( $this->mModuleStyles, (array)$modules );
-	}
-
-	/**
-	 * Get the list of module messages to include on this page
-	 *
-	 * @deprecated since 1.26 Obsolete
-	 * @param bool $filter
-	 * @param string|null $position
-	 * @return array Array of module names
-	 */
-	public function getModuleMessages( $filter = false, $position = null ) {
-		wfDeprecated( __METHOD__, '1.26' );
-		return [];
-	}
-
-	/**
-	 * Load messages of one or more ResourceLoader modules.
-	 *
-	 * @deprecated since 1.26 Use addModules() instead
-	 * @param string|array $modules Module name (string) or array of module names
-	 */
-	public function addModuleMessages( $modules ) {
-		wfDeprecated( __METHOD__, '1.26' );
 	}
 
 	/**
@@ -1781,10 +1757,13 @@ class OutputPage extends ContextSource {
 			}
 		}
 
-		// enable OOUI if requested via ParserOutput
+		// Enable OOUI if requested via ParserOutput
 		if ( $parserOutput->getEnableOOUI() ) {
 			$this->enableOOUI();
 		}
+
+		// Include profiling data
+		$this->limitReportData = $parserOutput->getLimitReportData();
 
 		// Link flags are ignored for now, but may in the future be
 		// used to mark individual language links.
@@ -2633,7 +2612,8 @@ class OutputPage extends ContextSource {
 		$userdir = $this->getLanguage()->getDir();
 		$sitedir = $wgContLang->getDir();
 
-		$ret = Html::htmlHeader( $sk->getHtmlElementAttributes() );
+		$pieces = [];
+		$pieces[] = Html::htmlHeader( $sk->getHtmlElementAttributes() );
 
 		if ( $this->getHTMLTitle() == '' ) {
 			$this->setHTMLTitle( $this->msg( 'pagetitle', $this->getPageTitle() )->inContentLanguage() );
@@ -2641,8 +2621,7 @@ class OutputPage extends ContextSource {
 
 		$openHead = Html::openElement( 'head' );
 		if ( $openHead ) {
-			# Don't bother with the newline if $head == ''
-			$ret .= "$openHead\n";
+			$pieces[] = $openHead;
 		}
 
 		if ( !Html::isXmlMimeType( $this->getConfig()->get( 'MimeType' ) ) ) {
@@ -2654,25 +2633,25 @@ class OutputPage extends ContextSource {
 			// Our XML declaration is output by Html::htmlHeader.
 			// http://www.whatwg.org/html/semantics.html#attr-meta-http-equiv-content-type
 			// http://www.whatwg.org/html/semantics.html#charset
-			$ret .= Html::element( 'meta', [ 'charset' => 'UTF-8' ] ) . "\n";
+			$pieces[] = Html::element( 'meta', [ 'charset' => 'UTF-8' ] );
 		}
 
-		$ret .= Html::element( 'title', null, $this->getHTMLTitle() ) . "\n";
-		$ret .= $this->getInlineHeadScripts() . "\n";
-		$ret .= $this->buildCssLinks() . "\n";
-		$ret .= $this->getExternalHeadScripts() . "\n";
+		$pieces[] = Html::element( 'title', null, $this->getHTMLTitle() );
+		$pieces[] = $this->getInlineHeadScripts();
+		$pieces[] = $this->buildCssLinks();
+		$pieces[] = $this->getExternalHeadScripts();
 
 		foreach ( $this->getHeadLinksArray() as $item ) {
-			$ret .= $item . "\n";
+			$pieces[] = $item;
 		}
 
 		foreach ( $this->mHeadItems as $item ) {
-			$ret .= $item . "\n";
+			$pieces[] = $item;
 		}
 
 		$closeHead = Html::closeElement( 'head' );
 		if ( $closeHead ) {
-			$ret .= "$closeHead\n";
+			$pieces[] = $closeHead;
 		}
 
 		$bodyClasses = [];
@@ -2686,6 +2665,11 @@ class OutputPage extends ContextSource {
 			# A <body> class is probably not the best way to do this . . .
 			$bodyClasses[] = 'capitalize-all-nouns';
 		}
+
+		// Parser feature migration class
+		// The idea is that this will eventually be removed, after the wikitext
+		// which requires it is cleaned up.
+		$bodyClasses[] = 'mw-hide-empty-elt';
 
 		$bodyClasses[] = $sk->getPageClasses( $this->getTitle() );
 		$bodyClasses[] = 'skin-' . Sanitizer::escapeClass( $sk->getSkinName() );
@@ -2701,9 +2685,9 @@ class OutputPage extends ContextSource {
 		$sk->addToBodyAttributes( $this, $bodyAttrs );
 		Hooks::run( 'OutputPageBodyAttributes', [ $this, $sk, &$bodyAttrs ] );
 
-		$ret .= Html::openElement( 'body', $bodyAttrs ) . "\n";
+		$pieces[] = Html::openElement( 'body', $bodyAttrs );
 
-		return $ret;
+		return WrappedStringList::join( "\n", $pieces );
 	}
 
 	/**
@@ -2782,6 +2766,17 @@ class OutputPage extends ContextSource {
 				|| ( $this->mTarget && !in_array( $this->mTarget, $module->getTargets() ) )
 			) {
 				continue;
+			}
+
+			if ( $only === ResourceLoaderModule::TYPE_STYLES ) {
+				if ( $module->getType() !== ResourceLoaderModule::LOAD_STYLES ) {
+					$logger = $resourceLoader->getLogger();
+					$logger->debug( 'Unexpected general module "{module}" in styles queue.', [
+						'module' => $name,
+					] );
+				} else {
+					$links['states'][$name] = 'ready';
+				}
 			}
 
 			$sortedModules[$module->getSource()][$module->getGroup()][$name] = $module;
@@ -2904,7 +2899,7 @@ class OutputPage extends ContextSource {
 	/**
 	 * Build html output from an array of links from makeResourceLoaderLink.
 	 * @param array $links
-	 * @return string HTML
+	 * @return string|WrappedStringList HTML
 	 */
 	protected static function getHtmlFromLoaderLinks( array $links ) {
 		$html = [];
@@ -2920,7 +2915,7 @@ class OutputPage extends ContextSource {
 		// Filter out empty values
 		$html = array_filter( $html, 'strlen' );
 
-		if ( count( $states ) ) {
+		if ( $states ) {
 			array_unshift( $html, ResourceLoader::makeInlineScript(
 				ResourceLoader::makeLoaderStateScript( $states )
 			) );
@@ -2940,25 +2935,23 @@ class OutputPage extends ContextSource {
 	}
 
 	/**
-	 * <script src="..."> tags for "<head>". This is the startup module
+	 * <script src="..."> tags for "<head>".This is the startup module
 	 * and other modules marked with position 'top'.
 	 *
-	 * @return string HTML fragment
+	 * @return string|WrappedStringList HTML
 	 */
 	function getExternalHeadScripts() {
-		$links = [];
-
 		// Startup - this provides the client with the module
 		// manifest and loads jquery and mediawiki base modules
+		$links = [];
 		$links[] = $this->makeResourceLoaderLink( 'startup', ResourceLoaderModule::TYPE_SCRIPTS );
-
 		return self::getHtmlFromLoaderLinks( $links );
 	}
 
 	/**
-	 * <script>...</script> tags to put in "<head>".
+	 * Inline "<script>" tags to put in "<head>".
 	 *
-	 * @return string HTML fragment
+	 * @return string|WrappedStringList HTML
 	 */
 	function getInlineHeadScripts() {
 		$links = [];
@@ -3018,7 +3011,7 @@ class OutputPage extends ContextSource {
 	 *
 	 * @param bool $unused Previously used to let this method change its output based
 	 *  on whether it was called by getExternalHeadScripts() or getBottomScripts().
-	 * @return string
+	 * @return string|WrappedStringList HTML
 	 */
 	function getScriptsForBottomQueue( $unused = null ) {
 		// Scripts "only" requests marked for bottom inclusion
@@ -3088,7 +3081,13 @@ class OutputPage extends ContextSource {
 	 * @return string
 	 */
 	function getBottomScripts() {
-		return $this->getScriptsForBottomQueue();
+		return $this->getScriptsForBottomQueue() .
+			ResourceLoader::makeInlineScript(
+				ResourceLoader::makeConfigSetScript(
+					[ 'wgPageParseReport' => $this->limitReportData ],
+					true
+				)
+			);
 	}
 
 	/**
@@ -3617,10 +3616,9 @@ class OutputPage extends ContextSource {
 	}
 
 	/**
-	 * Build a set of "<link>" elements for the stylesheets specified in the $this->styles array.
-	 * These will be applied to various media & IE conditionals.
+	 * Build a set of "<link>" elements for stylesheets specified in the $this->styles array.
 	 *
-	 * @return string
+	 * @return string|WrappedStringList HTML
 	 */
 	public function buildCssLinks() {
 		global $wgContLang;
@@ -3722,7 +3720,9 @@ class OutputPage extends ContextSource {
 		}
 
 		// Add stuff in $otherTags (previewed user CSS if applicable)
-		return self::getHtmlFromLoaderLinks( $links ) . implode( '', $otherTags );
+		$links[] = implode( '', $otherTags );
+
+		return self::getHtmlFromLoaderLinks( $links );
 	}
 
 	/**

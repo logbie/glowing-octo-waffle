@@ -1773,12 +1773,13 @@ class Title implements LinkTarget {
 	 *
 	 * @param array $query
 	 * @param bool $query2
-	 * @param string $proto Protocol to use; setting this will cause a full URL to be used
+	 * @param string|int|bool $proto A PROTO_* constant on how the URL should be expanded,
+	 *                               or false (default) for no expansion
 	 * @see self::getLocalURL for the arguments.
 	 * @return string The URL
 	 */
-	public function getLinkURL( $query = '', $query2 = false, $proto = PROTO_RELATIVE ) {
-		if ( $this->isExternal() || $proto !== PROTO_RELATIVE ) {
+	public function getLinkURL( $query = '', $query2 = false, $proto = false ) {
+		if ( $this->isExternal() || $proto !== false ) {
 			$ret = $this->getFullURL( $query, $query2, $proto );
 		} elseif ( $this->getPrefixedText() === '' && $this->hasFragment() ) {
 			$ret = $this->getFragmentForURL();
@@ -4366,18 +4367,23 @@ class Title implements LinkTarget {
 			return true; // avoid gap locking if we know it's not there
 		}
 
-		$method = __METHOD__;
-		$dbw = wfGetDB( DB_MASTER );
 		$conds = $this->pageCond();
-		$dbw->onTransactionIdle( function () use ( $dbw, $conds, $method, $purgeTime ) {
-			$dbTimestamp = $dbw->timestamp( $purgeTime ?: time() );
-			$dbw->update(
-				'page',
-				[ 'page_touched' => $dbTimestamp ],
-				$conds + [ 'page_touched < ' . $dbw->addQuotes( $dbTimestamp ) ],
-				$method
-			);
-		} );
+		DeferredUpdates::addUpdate(
+			new AutoCommitUpdate(
+				wfGetDB( DB_MASTER ),
+				__METHOD__,
+				function ( IDatabase $dbw, $fname ) use ( $conds, $purgeTime ) {
+					$dbTimestamp = $dbw->timestamp( $purgeTime ?: time() );
+					$dbw->update(
+						'page',
+						[ 'page_touched' => $dbTimestamp ],
+						$conds + [ 'page_touched < ' . $dbw->addQuotes( $dbTimestamp ) ],
+						$fname
+					);
+				}
+			),
+			DeferredUpdates::PRESEND
+		);
 
 		return true;
 	}
@@ -4553,10 +4559,10 @@ class Title implements LinkTarget {
 	 * @return bool
 	 */
 	public function canUseNoindex() {
-		global $wgContentNamespaces, $wgExemptFromUserRobotsControl;
+		global $wgExemptFromUserRobotsControl;
 
 		$bannedNamespaces = is_null( $wgExemptFromUserRobotsControl )
-			? $wgContentNamespaces
+			? MWNamespace::getContentNamespaces()
 			: $wgExemptFromUserRobotsControl;
 
 		return !in_array( $this->mNamespace, $bannedNamespaces );

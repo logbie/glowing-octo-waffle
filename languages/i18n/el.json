@@ -48,7 +48,8 @@
 			"Gts-tg",
 			"Nemo bis",
 			"Αντιγόνη",
-			"Matma Rex"
+			"Matma Rex",
+			"Ανώνυμος Βικιπαιδιστής"
 		]
 	},
 	"tog-underline": "Υπογράμμιση συνδέσμων:",
@@ -870,7 +871,7 @@
 	"revdelete-submit": "Εφαρμογή {{PLURAL:$1|στην επιλεγμένη αναθεώρηση|στις επιλεγμένες αναθεωρήσεις}}",
 	"revdelete-success": "'''Η ορατότητα έκδοσης ενημερώθηκε επιτυχώς.'''",
 	"revdelete-failure": "'''Η ορατότητα της επεξεργασίας δεν ήταν δυνατόν να ενημερωθεί:''' $1",
-	"logdelete-success": "'''Η ορατότητα γεγονότος τέθηκε επιτυχώς.'''",
+	"logdelete-success": "Η ορατότητα γεγονότος τέθηκε επιτυχώς.",
 	"logdelete-failure": "'''Η ορατότητα του καταλόγου δεν μπορούσε να ρυθμιστεί:'''\n$1",
 	"revdel-restore": "αλλαγή ορατότητας",
 	"pagehist": "Ιστορικό σελίδας",
@@ -3532,9 +3533,9 @@
 	"mw-widgets-dateinput-placeholder-month": "ΕΕΕΕ-ΜΜ",
 	"mw-widgets-titleinput-description-new-page": "η σελίδα που δεν υπάρχει ακόμα",
 	"mw-widgets-titleinput-description-redirect": "ανακατεύθυνση στο $1",
-	"api-error-blacklisted": "Παρακαλώ επιλέξτε ένα διαφορετικό, περιγραφικό τίτλο.",
 	"sessionprovider-generic": "$1 συνεδρίες",
 	"sessionprovider-mediawiki-session-cookiesessionprovider": "συνεδρίες με βάση τα cookies",
 	"sessionprovider-nocookies": "Τα Cookies μπορούν να απενεργοποιηθούν. Βεβαιωθείτε ότι έχετε ενεργοποιημένα τα cookies και ξεκινήστε πάλι.",
-	"randomrootpage": "Τυχαία κύρια σελίδα"
+	"randomrootpage": "Τυχαία κύρια σελίδα",
+	"log-action-filter-rights": "Πληκτρολογήστε για αλλαγή δικαιωμάτων:"
 }

@@ -467,9 +467,13 @@ abstract class UploadBase {
 			}
 		}
 
-		Hooks::run( 'UploadVerifyFile', [ $this, $mime, &$status ] );
-		if ( $status !== true ) {
-			return $status;
+		$error = true;
+		Hooks::run( 'UploadVerifyFile', [ $this, $mime, &$error ] );
+		if ( $error !== true ) {
+			if ( !is_array( $error ) ) {
+				$error = [ $error ];
+			}
+			return $error;
 		}
 
 		wfDebug( __METHOD__ . ": all clear; passing.\n" );
@@ -717,13 +721,23 @@ abstract class UploadBase {
 	 */
 	public function performUpload( $comment, $pageText, $watch, $user, $tags = [] ) {
 		$this->getLocalFile()->load( File::READ_LATEST );
+		$props = $this->mFileProps;
+
+		$error = null;
+		Hooks::run( 'UploadVerifyUpload', [ $this, $user, $props, $comment, $pageText, &$error ] );
+		if ( $error ) {
+			if ( !is_array( $error ) ) {
+				$error = [ $error ];
+			}
+			return call_user_func_array( 'Status::newFatal', $error );
+		}
 
 		$status = $this->getLocalFile()->upload(
 			$this->mTempPath,
 			$comment,
 			$pageText,
 			File::DELETE_SOURCE,
-			$this->mFileProps,
+			$props,
 			false,
 			$user,
 			$tags

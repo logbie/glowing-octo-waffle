@@ -398,9 +398,13 @@ $wgAllowImageMoving = true;
 $wgEnableAsyncUploads = false;
 
 /**
- * These are additional characters that should be replaced with '-' in filenames
+ * Additional characters that are not allowed in filenames. They are replaced with '-' when
+ * uploading. Like $wgLegalTitleChars, this is a regexp character class.
+ *
+ * Slashes and backslashes are disallowed regardless of this setting, but included here for
+ * completeness.
  */
-$wgIllegalFileChars = ":";
+$wgIllegalFileChars = ":\\/\\\\";
 
 /**
  * What directory to place deleted uploads in.
@@ -1444,7 +1448,10 @@ $wgGalleryOptions = [
 	'imagesPerRow' => 0, // Default number of images per-row in the gallery. 0 -> Adapt to screensize
 	'imageWidth' => 120, // Width of the cells containing images in galleries (in "px")
 	'imageHeight' => 120, // Height of the cells containing images in galleries (in "px")
-	'captionLength' => 25, // Length of caption to truncate (in characters)
+	'captionLength' => true, // Deprecated @since 1.28
+	                         // Length to truncate filename to in caption when using "showfilename".
+	                         // A value of 'true' will truncate the filename to one line using CSS
+	                         // and will be the behaviour after deprecation.
 	'showBytes' => true, // Show the filesize in bytes in categories
 	'mode' => 'traditional',
 ];
@@ -2883,15 +2890,6 @@ $wgDummyLanguageCodes = [
 ];
 
 /**
- * Character set for use in the article edit box. Language-specific encodings
- * may be defined.
- *
- * This historic feature is one of the first that was added by former MediaWiki
- * team leader Brion Vibber, and is used to support the Esperanto x-system.
- */
-$wgEditEncoding = '';
-
-/**
  * Set this to true to replace Arabic presentation forms with their standard
  * forms in the U+0600-U+06FF block. This only works if $wgLanguageCode is
  * set to "ar".
@@ -4216,6 +4214,8 @@ $wgAllowImageTag = false;
  *    - RaggettInternalHHVM: Use the limited-functionality HHVM extension
  *    - RaggettInternalPHP: Use the PECL extension
  *    - RaggettExternal: Shell out to an external binary (tidyBin)
+ *    - Html5Depurate: Use external Depurate service
+ *    - Html5Internal: Use the built-in HTML5 balancer
  *
  *  - tidyConfigFile: Path to configuration file for any of the Raggett drivers
  *  - debugComment: True to add a comment to the output with warning messages
@@ -8059,10 +8059,9 @@ $wgUpdateRowsPerQuery = 100;
 
 /**
  * Name of the external diff engine to use. Supported values:
- * * false: default PHP implementation
- * * 'wikidiff2': Wikimedia's fast difference engine implemented as a PHP/HHVM module
- * * 'wikidiff' and 'wikidiff3' are treated as false for backwards compatibility
- * * any other string is treated as a path to external diff executable
+ * * string: path to an external diff executable
+ * * false: wikidiff2 PHP/HHVM module if installed, otherwise the default PHP implementation
+ * * 'wikidiff', 'wikidiff2', and 'wikidiff3' are treated as false for backwards compatibility
  */
 $wgExternalDiffEngine = false;
 
@@ -8344,6 +8343,21 @@ $wgEventRelayerConfig = [
 		'class' => 'EventRelayerNull',
 	]
 ];
+
+/**
+ * Share data about this installation with MediaWiki developers
+ *
+ * When set to true, MediaWiki will periodically ping https://www.mediawiki.org/ with basic
+ * data about this MediaWiki instance. This data includes, for example, the type of system,
+ * PHP version, and chosen database backend. The Wikimedia Foundation shares this data with
+ * MediaWiki developers to help guide future development efforts.
+ *
+ * For details about what data is sent, see: https://www.mediawiki.org/wiki/Pingback
+ *
+ * @var bool
+ * @since 1.28
+ */
+$wgPingback = false;
 
 /**
  * For really cool vim folding this needs to be at the end:

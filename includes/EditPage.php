@@ -20,6 +20,8 @@
  * @file
  */
 
+use MediaWiki\Logger\LoggerFactory;
+
 /**
  * The edit page/HTML interface (split from Article)
  * The actual database and text munging is still in Article,
@@ -259,9 +261,6 @@ class EditPage {
 	public $tooBig = false;
 
 	/** @var bool */
-	public $kblength = false;
-
-	/** @var bool */
 	public $missingComment = false;
 
 	/** @var bool */
@@ -393,6 +392,9 @@ class EditPage {
 
 	/** @var bool */
 	protected $edit;
+
+	/** @var bool|int */
+	protected $contentLength = false;
 
 	/**
 	 * @var bool Set in ApiEditPage, based on ContentHandler::allowsDirectApiEditing
@@ -1249,9 +1251,31 @@ class EditPage {
 
 			return $handler->makeEmptyContent();
 		} else {
-			# nasty side-effect, but needed for consistency
-			$this->contentModel = $rev->getContentModel();
-			$this->contentFormat = $rev->getContentFormat();
+			// Content models should always be the same since we error
+			// out if they are different before this point.
+			$logger = LoggerFactory::getInstance( 'editpage' );
+			if ( $this->contentModel !== $rev->getContentModel() ) {
+				$logger->warning( "Overriding content model from current edit {prev} to {new}", [
+					'prev' => $this->contentModel,
+					'new' => $rev->getContentModel(),
+					'title' => $this->getTitle()->getPrefixedDBkey(),
+					'method' => __METHOD__
+				] );
+				$this->contentModel = $rev->getContentModel();
+			}
+
+			// Given that the content models should match, the current selected
+			// format should be supported.
+			if ( !$content->isSupportedFormat( $this->contentFormat ) ) {
+				$logger->warning( "Current revision content format unsupported. Overriding {prev} to {new}", [
+
+					'prev' => $this->contentFormat,
+					'new' => $rev->getContentFormat(),
+					'title' => $this->getTitle()->getPrefixedDBkey(),
+					'method' => __METHOD__
+				] );
+				$this->contentFormat = $rev->getContentFormat();
+			}
 
 			return $content;
 		}
@@ -1286,7 +1310,7 @@ class EditPage {
 			return $this->mPreloadContent;
 		}
 
-		$handler = ContentHandler::getForTitle( $this->getTitle() );
+		$handler = ContentHandler::getForModelID( $this->contentModel );
 
 		if ( $preload === '' ) {
 			return $handler->makeEmptyContent();
@@ -1750,8 +1774,8 @@ class EditPage {
 			return $status;
 		}
 
-		$this->kblength = (int)( strlen( $this->textbox1 ) / 1024 );
-		if ( $this->kblength > $wgMaxArticleSize ) {
+		$this->contentLength = strlen( $this->textbox1 );
+		if ( $this->contentLength > $wgMaxArticleSize * 1024 ) {
 			// Error will be displayed by showEditForm()
 			$this->tooBig = true;
 			$status->setResult( false, self::AS_CONTENT_TOO_BIG );
@@ -2038,8 +2062,8 @@ class EditPage {
 		}
 
 		// Check for length errors again now that the section is merged in
-		$this->kblength = (int)( strlen( $this->toEditText( $content ) ) / 1024 );
-		if ( $this->kblength > $wgMaxArticleSize ) {
+		$this->contentLength = strlen( $this->toEditText( $content ) );
+		if ( $this->contentLength > $wgMaxArticleSize * 1024 ) {
 			$this->tooBig = true;
 			$status->setResult( false, self::AS_MAX_ARTICLE_SIZE_EXCEEDED );
 			return $status;
@@ -2944,15 +2968,15 @@ class EditPage {
 					'wrap' => "<div class=\"mw-titleprotectedwarning\">\n$1</div>" ] );
 		}
 
-		if ( $this->kblength === false ) {
-			$this->kblength = (int)( strlen( $this->textbox1 ) / 1024 );
+		if ( $this->contentLength === false ) {
+			$this->contentLength = strlen( $this->textbox1 );
 		}
 
-		if ( $this->tooBig || $this->kblength > $wgMaxArticleSize ) {
+		if ( $this->tooBig || $this->contentLength > $wgMaxArticleSize * 1024 ) {
 			$wgOut->wrapWikiMsg( "<div class='error' id='mw-edit-longpageerror'>\n$1\n</div>",
 				[
 					'longpageerror',
-					$wgLang->formatNum( $this->kblength ),
+					$wgLang->formatNum( round( $this->contentLength / 1024, 3 ) ),
 					$wgLang->formatNum( $wgMaxArticleSize )
 				]
 			);
@@ -3026,7 +3050,7 @@ class EditPage {
 	 * @param string $summary The text of the summary to display
 	 */
 	protected function showSummaryInput( $isSubjectPreview, $summary = "" ) {
-		global $wgOut, $wgContLang;
+		global $wgOut;
 		# Add a class if 'missingsummary' is triggered to allow styling of the summary line
 		$summaryClass = $this->missingSummary ? 'mw-summarymissed' : 'mw-summary';
 		if ( $isSubjectPreview ) {
@@ -3038,7 +3062,6 @@ class EditPage {
 				return;
 			}
 		}
-		$summary = $wgContLang->recodeForEdit( $summary );
 		$labelText = wfMessage( $isSubjectPreview ? 'subject' : 'summary' )->parse();
 		list( $label, $input ) = $this->getSummaryInput(
 			$summary,
@@ -3513,13 +3536,12 @@ HTML
 		if ( Hooks::run( 'EditPageBeforeConflictDiff', [ &$this, &$wgOut ] ) ) {
 			$stats = $wgOut->getContext()->getStats();
 			$stats->increment( 'edit.failures.conflict' );
-			if ( $this->mTitle->isTalkPage() ) {
-				$stats->increment( 'edit.failures.conflict.byType.talk' );
-			} else {
-				$stats->increment( 'edit.failures.conflict.byType.subject' );
-			}
-			if ( $this->mTitle->getNamespace() === NS_PROJECT ) {
-				$stats->increment( 'edit.failures.conflict.byNamespace.project' );
+			// Only include 'standard' namespaces to avoid creating unknown numbers of statsd metrics
+			if (
+				$this->mTitle->getNamespace() >= NS_MAIN &&
+				$this->mTitle->getNamespace() <= NS_CATEGORY_TALK
+			) {
+				$stats->increment( 'edit.failures.conflict.byNamespaceId.' . $this->mTitle->getNamespace() );
 			}
 
 			$wgOut->wrapWikiMsg( '<h2>$1</h2>', "yourdiff" );
@@ -4175,11 +4197,9 @@ HTML
 	 * @return string
 	 */
 	protected function safeUnicodeOutput( $text ) {
-		global $wgContLang;
-		$codedText = $wgContLang->recodeForEdit( $text );
 		return $this->checkUnicodeCompliantBrowser()
-			? $codedText
-			: $this->makeSafe( $codedText );
+			? $text
+			: $this->makesafe( $text );
 	}
 
 	/**

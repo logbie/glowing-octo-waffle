@@ -350,6 +350,20 @@ abstract class HTMLFormField {
 	}
 
 	/**
+	 * Can we assume that the request is an attempt to submit a HTMLForm, as opposed to an attempt to
+	 * just view it? This can't normally be distinguished for e.g. checkboxes.
+	 *
+	 * Returns true if the request has a field for a CSRF token (wpEditToken) or a form identifier
+	 * (wpFormIdentifier).
+	 *
+	 * @param WebRequest $request
+	 * @return boolean
+	 */
+	protected function isSubmitAttempt( WebRequest $request ) {
+		return $request->getCheck( 'wpEditToken' ) || $request->getCheck( 'wpFormIdentifier' );
+	}
+
+	/**
 	 * Get the value that this input has been set to from a posted form,
 	 * or the input's default value if it has not been set.
 	 *
@@ -598,11 +612,17 @@ abstract class HTMLFormField {
 			$error = new OOUI\HtmlSnippet( $error );
 		}
 
+		$notices = $this->getNotices();
+		foreach ( $notices as &$notice ) {
+			$notice = new OOUI\HtmlSnippet( $notice );
+		}
+
 		$config = [
 			'classes' => [ "mw-htmlform-field-$fieldType", $this->mClass ],
 			'align' => $this->getLabelAlignOOUI(),
 			'help' => $helpText !== null ? new OOUI\HtmlSnippet( $helpText ) : null,
 			'errors' => $errors,
+			'notices' => $notices,
 			'infusable' => $infusable,
 		];
 
@@ -838,6 +858,30 @@ abstract class HTMLFormField {
 		}
 
 		return $errors;
+	}
+
+	/**
+	 * Determine notices to display for the field.
+	 *
+	 * @since 1.28
+	 * @return string[]
+	 */
+	function getNotices() {
+		$notices = [];
+
+		if ( isset( $this->mParams['notice-message'] ) ) {
+			$notices[] = $this->getMessage( $this->mParams['notice-message'] )->parse();
+		}
+
+		if ( isset( $this->mParams['notice-messages'] ) ) {
+			foreach ( $this->mParams['notice-messages'] as $msg ) {
+				$notices[] = $this->getMessage( $msg )->parse();
+			}
+		} elseif ( isset( $this->mParams['notice'] ) ) {
+			$notices[] = $this->mParams['notice'];
+		}
+
+		return $notices;
 	}
 
 	/**

@@ -345,34 +345,32 @@ class ApiParse extends ApiBase {
 				$titleObj->getPrefixedText();
 		}
 
-		if ( isset( $prop['headitems'] ) || isset( $prop['headhtml'] ) ) {
-			$context = $this->getContext();
+		if ( isset( $prop['headitems'] ) ) {
+			$result_array['headitems'] = $this->formatHeadItems( $p_result->getHeadItems() );
+			$this->logFeatureUsage( 'action=parse&prop=headitems' );
+			$this->setWarning( 'headitems is deprecated since MediaWiki 1.28. '
+				. 'Use prop=headhtml when creating new HTML documents, or '
+				. 'prop=modules|jsconfigvars when updating a document client-side.' );
+		}
+
+		if ( isset( $prop['headhtml'] ) ) {
+			$context = new DerivativeContext( $this->getContext() );
 			$context->setTitle( $titleObj );
-			$context->getOutput()->addParserOutputMetadata( $p_result );
+			$context->setWikiPage( $pageObj );
 
-			if ( isset( $prop['headitems'] ) ) {
-				$headItems = $this->formatHeadItems( $p_result->getHeadItems() );
+			// We need an OutputPage tied to $context, not to the
+			// RequestContext at the root of the stack.
+			$output = new OutputPage( $context );
+			$output->addParserOutputMetadata( $p_result );
 
-				$css = $this->formatCss( $context->getOutput()->buildCssLinksArray() );
-
-				$scripts = [ $context->getOutput()->getHeadScripts() ];
-
-				$result_array['headitems'] = array_merge( $headItems, $css, $scripts );
-			}
-
-			if ( isset( $prop['headhtml'] ) ) {
-				$result_array['headhtml'] = $context->getOutput()->headElement( $context->getSkin() );
-				$result_array[ApiResult::META_BC_SUBELEMENTS][] = 'headhtml';
-			}
+			$result_array['headhtml'] = $output->headElement( $context->getSkin() );
+			$result_array[ApiResult::META_BC_SUBELEMENTS][] = 'headhtml';
 		}
 
 		if ( isset( $prop['modules'] ) ) {
 			$result_array['modules'] = array_values( array_unique( $p_result->getModules() ) );
 			$result_array['modulescripts'] = array_values( array_unique( $p_result->getModuleScripts() ) );
 			$result_array['modulestyles'] = array_values( array_unique( $p_result->getModuleStyles() ) );
-			// To be removed in 1.27
-			$result_array['modulemessages'] = [];
-			$this->setWarning( 'modulemessages is deprecated since MediaWiki 1.26' );
 		}
 
 		if ( isset( $prop['jsconfigvars'] ) ) {
@@ -456,7 +454,6 @@ class ApiParse extends ApiBase {
 			'indicators' => 'ind',
 			'modulescripts' => 'm',
 			'modulestyles' => 'm',
-			'modulemessages' => 'm',
 			'properties' => 'pp',
 			'limitreportdata' => 'lr',
 		];
@@ -698,18 +695,6 @@ class ApiParse extends ApiBase {
 			$entry = [];
 			$entry['tag'] = $tag;
 			ApiResult::setContentValue( $entry, 'content', $content );
-			$result[] = $entry;
-		}
-
-		return $result;
-	}
-
-	private function formatCss( $css ) {
-		$result = [];
-		foreach ( $css as $file => $link ) {
-			$entry = [];
-			$entry['file'] = $file;
-			ApiResult::setContentValue( $entry, 'link', $link );
 			$result[] = $entry;
 		}
 

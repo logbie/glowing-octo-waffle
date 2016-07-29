@@ -690,7 +690,9 @@ wfDebugLog( 'caches',
 	', WAN: ' . $wgMainWANCache .
 	', stash: ' . $wgMainStash .
 	', message: ' . get_class( $messageMemc ) .
-	', parser: ' . get_class( $parserMemc ) );
+	', parser: ' . get_class( $parserMemc ) .
+	', session: ' . get_class( ObjectCache::getInstance( $wgSessionCacheType ) )
+);
 
 Profiler::instance()->scopedProfileOut( $ps_memcached );
 
@@ -703,7 +705,6 @@ $ps_globals = Profiler::instance()->scopedProfileIn( $fname . '-globals' );
  * @var Language $wgContLang
  */
 $wgContLang = Language::factory( $wgLanguageCode );
-$wgContLang->initEncoding();
 $wgContLang->initContLang();
 
 // Now that variant lists may be available...
@@ -868,6 +869,10 @@ if ( !defined( 'MW_NO_SESSION' ) && !$wgCommandLineMode ) {
 		unset( $res );
 	}
 	unset( $sessionUser );
+}
+
+if ( !$wgCommandLineMode ) {
+	Pingback::schedulePingback();
 }
 
 wfDebug( "Fully initialised\n" );

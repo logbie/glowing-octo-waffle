@@ -568,6 +568,8 @@
 	"minoredit": "Aldaketa hau txikia da",
 	"watchthis": "Orrialde hau jarraitu",
 	"savearticle": "Gorde orria",
+	"publishpage": "Orrialdea argitaratu",
+	"publishchanges": "Aldaketak argitaratu",
 	"preview": "Aurrebista erakutsi",
 	"showpreview": "Aurrebista erakutsi",
 	"showdiff": "Aldaketak erakutsi",
@@ -942,7 +944,7 @@
 	"badsig": "Baliogabeko sinadura; egiaztatu HTML etiketak.",
 	"badsiglength": "Zure sinadura luzeegia da.\n$1 {{PLURAL:$1|karakteretik|karakteretik}} behera izan behar ditu.",
 	"yourgender": "Nola nahiagu duzu deskribatua izatea?",
-	"gender-unknown": "Nahiago dut ez esatea",
+	"gender-unknown": "Aipatzen zaituztenean, softwareak genero neutroa erabiliko du hori posible denean",
 	"gender-male": "Wiki orrialdeak editatzen dituen gizona",
 	"gender-female": "Wiki orrialdeak editatzen dituen emakumea",
 	"prefs-help-gender": "Hobespen hau jartzea aukerazkoa da.\nSoftwareak bere balioak erabiltzen ditu zu aipatzeko eta beste batzuek genero gramatikala erabiltzeko aukera izan dezaten.\nInformazio hau publikoa da.",
@@ -1889,6 +1891,8 @@
 	"sp-contributions-search": "Ekarpenentzako bilaketa",
 	"sp-contributions-username": "IP helbidea edo erabiltzaile izena:",
 	"sp-contributions-toponly": "Azken aldaketak direnak soilik erakutsi",
+	"sp-contributions-newonly": "Orrialde sorkuntza direnak soilik erakutsi",
+	"sp-contributions-hideminor": "Aldaketa txikiak ezkutatu",
 	"sp-contributions-submit": "Bilatu",
 	"whatlinkshere": "Honanzko lotura duten orriak",
 	"whatlinkshere-title": "$1(e)ra lotura duten orriak",
@@ -3165,6 +3169,5 @@
 	"mw-widgets-dateinput-no-date": "Ez duzu datarik aukeratu",
 	"mw-widgets-titleinput-description-new-page": "orri hori oraindik ez da existitzen",
 	"mw-widgets-titleinput-description-redirect": "$1ra birzuzendu",
-	"api-error-blacklisted": "Aukera ezazu, mesedez, izenburu ezberdin eta deskriptiboago bat.",
 	"sessionprovider-generic": "$1 sesio"
 }

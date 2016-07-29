@@ -71,7 +71,8 @@
 			"Dammråtta",
 			"Mgr",
 			"Matma Rex",
-			"McDutchie"
+			"McDutchie",
+			"Larske"
 		]
 	},
 	"tog-underline": "Stryk under länkar:",
@@ -804,6 +805,8 @@
 	"content-model-css": "CSS",
 	"content-json-empty-object": "Tomt objekt",
 	"content-json-empty-array": "Tomt fält",
+	"deprecated-self-close-category": "Sidor som använder ogiltiga självstängda HTML-taggar",
+	"deprecated-self-close-category-desc": "Sidan använder ogiltiga självstängda HTML-taggar, som <code>&lt;b/></code> eller <code>&lt;span/></code>.  Beteendet för dessa kommer snart att ändras för att bli konsistent med HTML5-specifikationen, så dessa anses vara för föråldrade för att använda i wikitext.",
 	"duplicate-args-warning": "<strong>Varning:</strong> [[:$1]] anropar [[:$2]] med mer än ett värde för parametern \"$3\". Endast det sista värdet kommer att användas.",
 	"duplicate-args-category": "Sidor som använder upprepade argument i mallanrop",
 	"duplicate-args-category-desc": "Sidan innehåller mallanrop som använder repeterade argument, så som <code><nowiki>{{foo|bar=1|bar=2}}</nowiki></code> eller <code><nowiki>{{foo|bar|1=baz}}</nowiki></code>.",
@@ -3671,7 +3674,6 @@
 	"mw-widgets-dateinput-placeholder-month": "ÅÅÅÅ-MM",
 	"mw-widgets-titleinput-description-new-page": "sidan existerar inte ännu",
 	"mw-widgets-titleinput-description-redirect": "omdirigerar till $1",
-	"api-error-blacklisted": "Välj en annan beskrivande titel.",
 	"sessionmanager-tie": "Kan inte kombinera flera begäransautentiseringstyper: $1.",
 	"sessionprovider-generic": "$1-sessioner",
 	"sessionprovider-mediawiki-session-cookiesessionprovider": "cookiebaserade sessioner",
@@ -3686,8 +3688,8 @@
 	"log-action-filter-newusers": "Typ av kontoskapande:",
 	"log-action-filter-patrol": "Typ av patrullering:",
 	"log-action-filter-protect": "Typ av skydd:",
-	"log-action-filter-rights": "Typ av rättighetsändring",
-	"log-action-filter-suppress": "Censurtyp",
+	"log-action-filter-rights": "Typ av rättighetsändring:",
+	"log-action-filter-suppress": "Censurtyp:",
 	"log-action-filter-upload": "Typ av uppladdning:",
 	"log-action-filter-all": "Alla",
 	"log-action-filter-block-block": "Blockering",

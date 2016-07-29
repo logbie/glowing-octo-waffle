@@ -58,6 +58,8 @@ abstract class DatabaseBase implements IDatabase {
 	protected $mTrxPreCommitCallbacks = [];
 	/** @var array[] List of (callable, method name) */
 	protected $mTrxEndCallbacks = [];
+	/** @var bool Whether to suppress triggering of post-commit callbacks */
+	protected $suppressPostCommitCallbacks = false;
 
 	protected $mTablePrefix;
 	protected $mSchema;
@@ -694,9 +696,6 @@ abstract class DatabaseBase implements IDatabase {
 	}
 
 	public function close() {
-		if ( count( $this->mTrxIdleCallbacks ) ) { // sanity
-			throw new MWException( "Transaction idle callbacks still pending." );
-		}
 		if ( $this->mConn ) {
 			if ( $this->trxLevel() ) {
 				if ( !$this->mTrxAutomatic ) {
@@ -709,6 +708,8 @@ abstract class DatabaseBase implements IDatabase {
 
 			$closed = $this->closeConnection();
 			$this->mConn = false;
+		} elseif ( $this->mTrxIdleCallbacks || $this->mTrxEndCallbacks ) { // sanity
+			throw new MWException( "Transaction callbacks still pending." );
 		} else {
 			$closed = true;
 		}
@@ -2387,14 +2388,19 @@ abstract class DatabaseBase implements IDatabase {
 	 * queries. If a deadlock occurs during the processing, the transaction
 	 * will be rolled back and the callback function will be called again.
 	 *
+	 * Avoid using this method outside of Job or Maintenance classes.
+	 *
 	 * Usage:
 	 *   $dbw->deadlockLoop( callback, ... );
 	 *
 	 * Extra arguments are passed through to the specified callback function.
+	 * This method requires that no transactions are already active to avoid
+	 * causing premature commits or exceptions.
 	 *
 	 * Returns whatever the callback function returned on its successful,
 	 * iteration, or false on error, for example if the retry limit was
 	 * reached.
+	 *
 	 * @return mixed
 	 * @throws DBUnexpectedError
 	 * @throws Exception
@@ -2460,7 +2466,7 @@ abstract class DatabaseBase implements IDatabase {
 	final public function onTransactionIdle( callable $callback ) {
 		$this->mTrxIdleCallbacks[] = [ $callback, wfGetCaller() ];
 		if ( !$this->mTrxLevel ) {
-			$this->runOnTransactionIdleCallbacks();
+			$this->runOnTransactionIdleCallbacks( self::TRIGGER_IDLE );
 		}
 	}
 
@@ -2468,16 +2474,43 @@ abstract class DatabaseBase implements IDatabase {
 		if ( $this->mTrxLevel ) {
 			$this->mTrxPreCommitCallbacks[] = [ $callback, wfGetCaller() ];
 		} else {
-			$this->onTransactionIdle( $callback ); // this will trigger immediately
+			// If no transaction is active, then make one for this callback
+			$this->begin( __METHOD__ );
+			try {
+				call_user_func( $callback );
+				$this->commit( __METHOD__ );
+			} catch ( Exception $e ) {
+				$this->rollback( __METHOD__ );
+				throw $e;
+			}
 		}
 	}
 
 	/**
-	 * Actually any "on transaction idle" callbacks.
+	 * Whether to disable running of post-commit callbacks
 	 *
+	 * This method should not be used outside of Database/LoadBalancer
+	 *
+	 * @param bool $suppress
+	 * @since 1.28
+	 */
+	final public function setPostCommitCallbackSupression( $suppress ) {
+		$this->suppressPostCommitCallbacks = $suppress;
+	}
+
+	/**
+	 * Actually run and consume any "on transaction idle/resolution" callbacks.
+	 *
+	 * This method should not be used outside of Database/LoadBalancer
+	 *
+	 * @param integer $trigger IDatabase::TRIGGER_* constant
 	 * @since 1.20
 	 */
-	protected function runOnTransactionIdleCallbacks() {
+	public function runOnTransactionIdleCallbacks( $trigger ) {
+		if ( $this->suppressPostCommitCallbacks ) {
+			return;
+		}
+
 		$autoTrx = $this->getFlag( DBO_TRX ); // automatic begin() enabled?
 
 		$e = $ePrior = null; // last exception
@@ -2486,13 +2519,13 @@ abstract class DatabaseBase implements IDatabase {
 				$this->mTrxIdleCallbacks,
 				$this->mTrxEndCallbacks // include "transaction resolution" callbacks
 			);
-			$this->mTrxIdleCallbacks = []; // recursion guard
-			$this->mTrxEndCallbacks = []; // recursion guard
+			$this->mTrxIdleCallbacks = []; // consumed (and recursion guard)
+			$this->mTrxEndCallbacks = []; // consumed (recursion guard)
 			foreach ( $callbacks as $callback ) {
 				try {
 					list( $phpCallback ) = $callback;
 					$this->clearFlag( DBO_TRX ); // make each query its own transaction
-					call_user_func( $phpCallback );
+					call_user_func_array( $phpCallback, [ $trigger ] );
 					if ( $autoTrx ) {
 						$this->setFlag( DBO_TRX ); // restore automatic begin()
 					} else {
@@ -2518,15 +2551,17 @@ abstract class DatabaseBase implements IDatabase {
 	}
 
 	/**
-	 * Actually any "on transaction pre-commit" callbacks.
+	 * Actually run and consume any "on transaction pre-commit" callbacks.
+	 *
+	 * This method should not be used outside of Database/LoadBalancer
 	 *
 	 * @since 1.22
 	 */
-	protected function runOnTransactionPreCommitCallbacks() {
+	public function runOnTransactionPreCommitCallbacks() {
 		$e = $ePrior = null; // last exception
 		do { // callbacks may add callbacks :)
 			$callbacks = $this->mTrxPreCommitCallbacks;
-			$this->mTrxPreCommitCallbacks = []; // recursion guard
+			$this->mTrxPreCommitCallbacks = []; // consumed (and recursion guard)
 			foreach ( $callbacks as $callback ) {
 				try {
 					list( $phpCallback ) = $callback;
@@ -2561,12 +2596,12 @@ abstract class DatabaseBase implements IDatabase {
 
 	final public function endAtomic( $fname = __METHOD__ ) {
 		if ( !$this->mTrxLevel ) {
-			throw new DBUnexpectedError( $this, 'No atomic transaction is open.' );
+			throw new DBUnexpectedError( $this, "No atomic transaction is open (got $fname)." );
 		}
 		if ( !$this->mTrxAtomicLevels ||
 			array_pop( $this->mTrxAtomicLevels ) !== $fname
 		) {
-			throw new DBUnexpectedError( $this, 'Invalid atomic section ended.' );
+			throw new DBUnexpectedError( $this, "Invalid atomic section ended (got $fname)." );
 		}
 
 		if ( !$this->mTrxAtomicLevels && $this->mTrxAutomaticAtomic ) {
@@ -2606,7 +2641,7 @@ abstract class DatabaseBase implements IDatabase {
 			} else {
 				// The transaction was automatic and has done write operations
 				if ( $this->mTrxDoneWrites ) {
-					wfDebug( "$fname: Automatic transaction with writes in progress" .
+					wfLogDBError( "$fname: Automatic transaction with writes in progress" .
 						" (from {$this->mTrxFname}), performing implicit commit!\n"
 					);
 				}
@@ -2621,7 +2656,7 @@ abstract class DatabaseBase implements IDatabase {
 					$this->mServer, $this->mDBname, $this->mTrxShortId, $writeTime );
 			}
 
-			$this->runOnTransactionIdleCallbacks();
+			$this->runOnTransactionIdleCallbacks( self::TRIGGER_COMMIT );
 		}
 
 		// Avoid fatals if close() was called
@@ -2634,8 +2669,6 @@ abstract class DatabaseBase implements IDatabase {
 		$this->mTrxAutomatic = false;
 		$this->mTrxAutomaticAtomic = false;
 		$this->mTrxAtomicLevels = [];
-		$this->mTrxIdleCallbacks = [];
-		$this->mTrxPreCommitCallbacks = [];
 		$this->mTrxShortId = wfRandomString( 12 );
 		$this->mTrxWriteDuration = 0.0;
 		$this->mTrxWriteCallers = [];
@@ -2697,7 +2730,7 @@ abstract class DatabaseBase implements IDatabase {
 				$this->mServer, $this->mDBname, $this->mTrxShortId, $writeTime );
 		}
 
-		$this->runOnTransactionIdleCallbacks();
+		$this->runOnTransactionIdleCallbacks( self::TRIGGER_COMMIT );
 	}
 
 	/**
@@ -2737,7 +2770,7 @@ abstract class DatabaseBase implements IDatabase {
 
 		$this->mTrxIdleCallbacks = []; // clear
 		$this->mTrxPreCommitCallbacks = []; // clear
-		$this->runOnTransactionIdleCallbacks();
+		$this->runOnTransactionIdleCallbacks( self::TRIGGER_ROLLBACK );
 	}
 
 	/**

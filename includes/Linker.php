@@ -137,31 +137,24 @@ class Linker {
 	/**
 	 * Return the CSS colour of a known link
 	 *
+	 * @deprecated since 1.28, use LinkRenderer::getLinkClasses() instead
+	 *
 	 * @since 1.16.3
 	 * @param LinkTarget $t
 	 * @param int $threshold User defined threshold
 	 * @return string CSS class
 	 */
 	public static function getLinkColour( LinkTarget $t, $threshold ) {
-		$linkCache = MediaWikiServices::getInstance()->getLinkCache();
-		// Make sure the target is in the cache
-		$id = $linkCache->addLinkObj( $t );
-		if ( $id == 0 ) {
-			// Doesn't exist
-			return '';
+		wfDeprecated( __METHOD__, '1.28' );
+		$services = MediaWikiServices::getInstance();
+		$linkRenderer = $services->getLinkRenderer();
+		if ( $threshold !== $linkRenderer->getStubThreshold() ) {
+			// Need to create a new instance with the right stub threshold...
+			$linkRenderer = $services->getLinkRendererFactory()->create();
+			$linkRenderer->setStubThreshold( $threshold );
 		}
 
-		if ( $linkCache->getGoodLinkFieldObj( $t, 'redirect' ) ) {
-			# Page is a redirect
-			return 'mw-redirect';
-		} elseif ( $threshold > 0 && MWNamespace::isContent( $t->getNamespace() )
-			&& $linkCache->getGoodLinkFieldObj( $t, 'length' ) < $threshold
-		) {
-			# Page is a stub
-			return 'stub';
-		}
-
-		return '';
+		return $linkRenderer->getLinkClasses( $t );
 	}
 
 	/**
@@ -177,6 +170,7 @@ class Linker {
 	 * link() replaces the old functions in the makeLink() family.
 	 *
 	 * @since 1.18 Method exists since 1.16 as non-static, made static in 1.18.
+	 * @deprecated since 1.28, use MediaWiki\Linker\LinkRenderer instead
 	 *
 	 * @param Title $target Can currently only be a Title, but this may
 	 *   change to support Images, literal URLs, etc.
@@ -252,7 +246,9 @@ class Linker {
 
 	/**
 	 * Identical to link(), except $options defaults to 'known'.
+	 *
 	 * @since 1.16.3
+	 * @deprecated since 1.28, use MediaWiki\Linker\LinkRenderer instead
 	 * @see Linker::link
 	 * @return string
 	 */

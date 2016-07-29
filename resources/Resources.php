@@ -948,7 +948,7 @@ return [
 	],
 	'mediawiki.content.json' => [
 		'position' => 'top',
-		'styles' => 'resources/src/mediawiki/mediawiki.content.json.css',
+		'styles' => 'resources/src/mediawiki/mediawiki.content.json.less',
 	],
 	'mediawiki.confirmCloseWindow' => [
 		'scripts' => [
@@ -1297,7 +1297,6 @@ return [
 			'filename-thumb-name',
 			'badfilename',
 			'protectedpagetext',
-			'api-error-blacklisted', // HACK
 		],
 	],
 	'mediawiki.ForeignStructuredUpload.BookletLayout' => [
@@ -1655,6 +1654,18 @@ return [
 		],
 		'position' => 'top',
 		'targets' => [ 'desktop', 'mobile' ],
+	],
+	'mediawiki.page.gallery.slideshow' => [
+		'scripts' => 'resources/src/mediawiki/page/gallery-slideshow.js',
+		'position' => 'top',
+		'dependencies' => [
+			'mediawiki.api',
+			'mediawiki.Title',
+			'oojs',
+			'oojs-ui-core',
+			'oojs-ui-widgets',
+			'oojs-ui.styles.icons-media'
+		]
 	],
 	'mediawiki.page.ready' => [
 		'scripts' => 'resources/src/mediawiki/page/ready.js',

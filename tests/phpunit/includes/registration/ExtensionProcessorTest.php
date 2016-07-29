@@ -2,11 +2,12 @@
 
 class ExtensionProcessorTest extends MediaWikiTestCase {
 
-	private $dir;
+	private $dir, $dirname;
 
 	public function setUp() {
 		parent::setUp();
 		$this->dir = __DIR__ . '/FooBar/extension.json';
+		$this->dirname = dirname( $this->dir );
 	}
 
 	/**
@@ -108,9 +109,9 @@ class ExtensionProcessorTest extends MediaWikiTestCase {
 	}
 
 	/**
-	 * @covers ExtensionProcessor::extractConfig
+	 * @covers ExtensionProcessor::extractConfig1
 	 */
-	public function testExtractConfig() {
+	public function testExtractConfig1() {
 		$processor = new ExtensionProcessor;
 		$info = [
 			'config' => [
@@ -132,6 +133,35 @@ class ExtensionProcessorTest extends MediaWikiTestCase {
 		$this->assertEquals( 'somevalue', $extracted['globals']['wgBar'] );
 		$this->assertEquals( 10, $extracted['globals']['wgFoo'] );
 		$this->assertArrayNotHasKey( 'wg@IGNORED', $extracted['globals'] );
+		// Custom prefix:
+		$this->assertEquals( 'somevalue', $extracted['globals']['egBar'] );
+	}
+
+	/**
+	 * @covers ExtensionProcessor::extractConfig2
+	 */
+	public function testExtractConfig2() {
+		$processor = new ExtensionProcessor;
+		$info = [
+			'config' => [
+				'Bar' => [ 'value' => 'somevalue' ],
+				'Foo' => [ 'value' => 10 ],
+				'Path' => [ 'value' => 'foo.txt', 'path' => true ],
+			],
+		] + self::$default;
+		$info2 = [
+			'config' => [
+				'Bar' => [ 'value' => 'somevalue' ],
+			],
+			'config_prefix' => 'eg',
+			'name' => 'FooBar2',
+		];
+		$processor->extractInfo( $this->dir, $info, 2 );
+		$processor->extractInfo( $this->dir, $info2, 2 );
+		$extracted = $processor->getExtractedInfo();
+		$this->assertEquals( 'somevalue', $extracted['globals']['wgBar'] );
+		$this->assertEquals( 10, $extracted['globals']['wgFoo'] );
+		$this->assertEquals( "{$this->dirname}/foo.txt", $extracted['globals']['wgPath'] );
 		// Custom prefix:
 		$this->assertEquals( 'somevalue', $extracted['globals']['egBar'] );
 	}
@@ -413,6 +443,26 @@ class ExtensionProcessorTest extends MediaWikiTestCase {
 				]
 			]
 		];
+	}
+
+	public function testGlobalSettingsDocumentedInSchema() {
+		global $IP;
+		$globalSettings = TestingAccessWrapper::newFromClass(
+			ExtensionProcessor::class )->globalSettings;
+
+		$schema = FormatJson::decode(
+			file_get_contents( "$IP/docs/extension.schema.json" ),
+			true
+		);
+		$missing = [];
+		foreach ( $globalSettings as $global ) {
+			if ( !isset( $schema['properties'][$global] ) ) {
+				$missing[] = $global;
+			}
+		}
+
+		$this->assertEquals( [], $missing,
+			"The following global settings are not documented in docs/extension.schema.json" );
 	}
 }
 

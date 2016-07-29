@@ -759,9 +759,10 @@ class WANObjectCache implements IExpiringStore, LoggerAwareInterface {
 	 * @param array $opts Options map:
 	 *   - checkKeys: List of "check" keys. The key at $key will be seen as invalid when either
 	 *      touchCheckKey() or resetCheckKey() is called on any of these keys.
-	 *   - lowTTL: Consider pre-emptive updates when the current TTL (sec) of the key is less than
-	 *      this. It becomes more likely over time, becoming a certainty once the key is expired.
-	 *      Default: WANObjectCache::LOW_TTL seconds.
+	 *      Default: [].
+	 *   - lowTTL: Consider pre-emptive updates when the current TTL (seconds) of the key is less
+	 *      than this. It becomes more likely over time, becoming certain once the key is expired.
+	 *      Default: WANObjectCache::LOW_TTL.
 	 *   - lockTSE: If the key is tombstoned or expired (by checkKeys) less than this many seconds
 	 *      ago, then try to have a single thread handle cache regeneration at any given time.
 	 *      Other threads will try to use stale values if possible. If, on miss, the time since
@@ -770,9 +771,14 @@ class WANObjectCache implements IExpiringStore, LoggerAwareInterface {
 	 *      higher this is set, the higher the worst-case staleness can be.
 	 *      Use WANObjectCache::TSE_NONE to disable this logic.
 	 *      Default: WANObjectCache::TSE_NONE.
-	 *   - pcTTL: Process cache the value in this PHP instance with this TTL. This avoids
-	 *      network I/O when a key is read several times. This will not cache if the callback
-	 *      returns false however. Note that any purges will not be seen while process cached;
+	 *   - busyValue: If no value exists and another thread is currently regenerating it, use this
+	 *      as a fallback value (or a callback to generate such a value). This assures that cache
+	 *      stampedes cannot happen if the value falls out of cache. This can be used as insurance
+	 *      against cache regeneration becoming very slow for some reason (greater than the TTL).
+	 *      Default: null.
+	 *   - pcTTL: Process cache the value in this PHP instance for this many seconds. This avoids
+	 *      network I/O when a key is read several times. This will not cache when the callback
+	 *      returns false, however. Note that any purges will not be seen while process cached;
 	 *      since the callback should use slave DBs and they may be lagged or have snapshot
 	 *      isolation anyway, this should not typically matter.
 	 *      Default: WANObjectCache::TTL_UNCACHEABLE.
@@ -782,6 +788,7 @@ class WANObjectCache implements IExpiringStore, LoggerAwareInterface {
 	 *      however, as this reduces compatibility (due to serialization).
 	 *      Default: null.
 	 * @return mixed Value found or written to the key
+	 * @note Callable type hints are not used to avoid class-autoloading
 	 */
 	final public function getWithSetCallback( $key, $ttl, $callback, array $opts = [] ) {
 		$pcTTL = isset( $opts['pcTTL'] ) ? $opts['pcTTL'] : self::TTL_UNCACHEABLE;
@@ -856,11 +863,13 @@ class WANObjectCache implements IExpiringStore, LoggerAwareInterface {
 	 *   - minTime: Treat values older than this UNIX timestamp as not existing. Default: null.
 	 * @param float &$asOf Cache generation timestamp of returned value [returned]
 	 * @return mixed
+	 * @note Callable type hints are not used to avoid class-autoloading
 	 */
 	protected function doGetWithSetCallback( $key, $ttl, $callback, array $opts, &$asOf = null ) {
 		$lowTTL = isset( $opts['lowTTL'] ) ? $opts['lowTTL'] : min( self::LOW_TTL, $ttl );
 		$lockTSE = isset( $opts['lockTSE'] ) ? $opts['lockTSE'] : self::TSE_NONE;
 		$checkKeys = isset( $opts['checkKeys'] ) ? $opts['checkKeys'] : [];
+		$busyValue = isset( $opts['busyValue'] ) ? $opts['busyValue'] : null;
 		$minTime = isset( $opts['minTime'] ) ? $opts['minTime'] : 0.0;
 		$versioned = isset( $opts['version'] );
 
@@ -882,11 +891,13 @@ class WANObjectCache implements IExpiringStore, LoggerAwareInterface {
 		$isTombstone = ( $curTTL !== null && $value === false );
 		// Assume a key is hot if requested soon after invalidation
 		$isHot = ( $curTTL !== null && $curTTL <= 0 && abs( $curTTL ) <= $lockTSE );
+		// Use the mutex if there is no value and a busy fallback is given
+		$checkBusy = ( $busyValue !== null && $value === false );
 		// Decide whether a single thread should handle regenerations.
 		// This avoids stampedes when $checkKeys are bumped and when preemptive
 		// renegerations take too long. It also reduces regenerations while $key
 		// is tombstoned. This balances cache freshness with avoiding DB load.
-		$useMutex = ( $isHot || ( $isTombstone && $lockTSE > 0 ) );
+		$useMutex = ( $isHot || ( $isTombstone && $lockTSE > 0 ) || $checkBusy );
 
 		$lockAcquired = false;
 		if ( $useMutex ) {
@@ -908,6 +919,10 @@ class WANObjectCache implements IExpiringStore, LoggerAwareInterface {
 
 					return $value;
 				}
+				// Use the busy fallback value if nothing else
+				if ( $busyValue !== null ) {
+					return is_callable( $busyValue ) ? $busyValue() : $busyValue;
+				}
 			}
 		}
 
@@ -921,7 +936,7 @@ class WANObjectCache implements IExpiringStore, LoggerAwareInterface {
 		$asOf = microtime( true );
 		// When delete() is called, writes are write-holed by the tombstone,
 		// so use a special INTERIM key to pass the new value around threads.
-		if ( $useMutex && $value !== false && $ttl >= 0 ) {
+		if ( ( $isTombstone && $lockTSE > 0 ) && $value !== false && $ttl >= 0 ) {
 			$tempTTL = max( 1, (int)$lockTSE ); // set() expects seconds
 			$wrapped = $this->wrap( $value, $tempTTL, $asOf );
 			$this->cache->set( self::INTERIM_KEY_PREFIX . $key, $wrapped, $tempTTL );

@@ -1388,13 +1388,14 @@ MESSAGE;
 	 * the given value.
 	 *
 	 * @param array $configuration List of configuration values keyed by variable name
+	 * @param bool $pretty Pretty-print with extra whitespace
 	 * @return string
 	 */
-	public static function makeConfigSetScript( array $configuration ) {
+	public static function makeConfigSetScript( array $configuration, $pretty = null ) {
 		return Xml::encodeJsCall(
 			'mw.config.set',
 			[ $configuration ],
-			ResourceLoader::inDebugMode()
+			( $pretty === null ) ? ResourceLoader::inDebugMode() : $pretty
 		);
 	}
 
@@ -1469,34 +1470,6 @@ MESSAGE;
 	}
 
 	/**
-	 * Build a load.php URL
-	 * @deprecated since 1.24 Use createLoaderURL() instead
-	 * @param array $modules Array of module names (strings)
-	 * @param string $lang Language code
-	 * @param string $skin Skin name
-	 * @param string|null $user User name. If null, the &user= parameter is omitted
-	 * @param string|null $version Versioning timestamp
-	 * @param bool $debug Whether the request should be in debug mode
-	 * @param string|null $only &only= parameter
-	 * @param bool $printable Printable mode
-	 * @param bool $handheld Handheld mode
-	 * @param array $extraQuery Extra query parameters to add
-	 * @return string URL to load.php. May be protocol-relative if $wgLoadScript is, too.
-	 */
-	public static function makeLoaderURL( $modules, $lang, $skin, $user = null,
-		$version = null, $debug = false, $only = null, $printable = false,
-		$handheld = false, $extraQuery = []
-	) {
-		global $wgLoadScript;
-
-		$query = self::makeLoaderQuery( $modules, $lang, $skin, $user, $version, $debug,
-			$only, $printable, $handheld, $extraQuery
-		);
-
-		return wfAppendQuery( $wgLoadScript, $query );
-	}
-
-	/**
 	 * Helper for createLoaderURL()
 	 *
 	 * @since 1.24
@@ -1505,7 +1478,7 @@ MESSAGE;
 	 * @param array $extraQuery
 	 * @return array
 	 */
-	public static function createLoaderQuery( ResourceLoaderContext $context, $extraQuery = [] ) {
+	protected static function createLoaderQuery( ResourceLoaderContext $context, $extraQuery = [] ) {
 		return self::makeLoaderQuery(
 			$context->getModules(),
 			$context->getLanguage(),
@@ -1522,7 +1495,7 @@ MESSAGE;
 
 	/**
 	 * Build a query array (array representation of query string) for load.php. Helper
-	 * function for makeLoaderURL().
+	 * function for createLoaderURL().
 	 *
 	 * @param array $modules
 	 * @param string $lang

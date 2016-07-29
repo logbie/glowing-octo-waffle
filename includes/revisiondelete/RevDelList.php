@@ -81,14 +81,13 @@ abstract class RevDelList extends RevisionListBase {
 	public function areAnySuppressed() {
 		$bit = $this->getSuppressBit();
 
-		// @codingStandardsIgnoreStart Generic.CodeAnalysis.ForLoopWithTestFunctionCall.NotAllowed
-		for ( $this->reset(); $this->current(); $this->next() ) {
-			// @codingStandardsIgnoreEnd
-			$item = $this->current();
+		/** @var $item RevDelItem */
+		foreach ( $this as $item ) {
 			if ( $item->getBits() & $bit ) {
 				return true;
 			}
 		}
+
 		return false;
 	}
 
@@ -104,6 +103,8 @@ abstract class RevDelList extends RevisionListBase {
 	 * @since 1.23 Added 'perItemStatus' param
 	 */
 	public function setVisibility( array $params ) {
+		$status = Status::newGood();
+
 		$bitPars = $params['value'];
 		$comment = $params['comment'];
 		$perItemStatus = isset( $params['perItemStatus'] ) ? $params['perItemStatus'] : false;
@@ -113,9 +114,17 @@ abstract class RevDelList extends RevisionListBase {
 		$dbw = wfGetDB( DB_MASTER );
 		$this->res = $this->doQuery( $dbw );
 
-		$dbw->startAtomic( __METHOD__ );
+		$status->merge( $this->acquireItemLocks() );
+		if ( !$status->isGood() ) {
+			return $status;
+		}
 
-		$status = Status::newGood();
+		$dbw->startAtomic( __METHOD__ );
+		$dbw->onTransactionResolution( function () {
+			// Release locks on commit or error
+			$this->releaseItemLocks();
+		} );
+
 		$missing = array_flip( $this->ids );
 		$this->clearFileOps();
 		$idsForLog = [];
@@ -132,11 +141,12 @@ abstract class RevDelList extends RevisionListBase {
 		$virtualNewBits = 0;
 		$logType = 'delete';
 
-		// @codingStandardsIgnoreStart Generic.CodeAnalysis.ForLoopWithTestFunctionCall.NotAllowed
-		for ( $this->reset(); $this->current(); $this->next() ) {
-			// @codingStandardsIgnoreEnd
-			/** @var $item RevDelItem */
-			$item = $this->current();
+		// Will be filled with id => [old, new bits] information and
+		// passed to doPostCommitUpdates().
+		$visibilityChangeMap = [];
+
+		/** @var $item RevDelItem */
+		foreach ( $this as $item ) {
 			unset( $missing[$item->getId()] );
 
 			if ( $perItemStatus ) {
@@ -205,6 +215,13 @@ abstract class RevDelList extends RevisionListBase {
 				} elseif ( IP::isIPAddress( $item->getAuthorName() ) ) {
 					$authorIPs[] = $item->getAuthorName();
 				}
+
+				// Save the old and new bits in $visibilityChangeMap for
+				// later use.
+				$visibilityChangeMap[$item->getId()] = [
+					'oldBits' => $oldBits,
+					'newBits' => $newBits,
+				];
 			} else {
 				$itemStatus->error(
 					'revdelete-concurrent-change', $item->formatDate(), $item->formatTime() );
@@ -223,7 +240,7 @@ abstract class RevDelList extends RevisionListBase {
 		}
 
 		if ( $status->successCount == 0 ) {
-			$dbw->rollback( __METHOD__ );
+			$dbw->endAtomic( __METHOD__ );
 			return $status;
 		}
 
@@ -233,8 +250,8 @@ abstract class RevDelList extends RevisionListBase {
 		// Move files, if there are any
 		$status->merge( $this->doPreCommitUpdates() );
 		if ( !$status->isOK() ) {
-			// Fatal error, such as no configured archive directory
-			$dbw->rollback( __METHOD__ );
+			// Fatal error, such as no configured archive directory or I/O failures
+			wfGetLBFactory()->rollbackMasterChanges( __METHOD__ );
 			return $status;
 		}
 
@@ -253,13 +270,35 @@ abstract class RevDelList extends RevisionListBase {
 			]
 		);
 
-		// Clear caches
-		$that = $this;
-		$dbw->onTransactionIdle( function() use ( $that ) {
-			$that->doPostCommitUpdates();
-		} );
+		// Clear caches after commit
+		DeferredUpdates::addCallableUpdate(
+			function () use ( $visibilityChangeMap ) {
+				$this->doPostCommitUpdates( $visibilityChangeMap );
+			},
+			DeferredUpdates::PRESEND
+		);
 
 		$dbw->endAtomic( __METHOD__ );
+
+		return $status;
+	}
+
+	final protected function acquireItemLocks() {
+		$status = Status::newGood();
+		/** @var $item RevDelItem */
+		foreach ( $this as $item ) {
+			$status->merge( $item->lock() );
+		}
+
+		return $status;
+	}
+
+	final protected function releaseItemLocks() {
+		$status = Status::newGood();
+		/** @var $item RevDelItem */
+		foreach ( $this as $item ) {
+			$status->merge( $item->unlock() );
+		}
 
 		return $status;
 	}
@@ -351,9 +390,10 @@ abstract class RevDelList extends RevisionListBase {
 	/**
 	 * A hook for setVisibility(): do any necessary updates post-commit.
 	 * STUB
+	 * @param array [id => ['oldBits' => $oldBits, 'newBits' => $newBits], ... ]
 	 * @return Status
 	 */
-	public function doPostCommitUpdates() {
+	public function doPostCommitUpdates( array $visibilityChangeMap ) {
 		return Status::newGood();
 	}
 

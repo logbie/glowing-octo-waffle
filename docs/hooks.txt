@@ -683,6 +683,10 @@ $oldPageID: the page ID of the revision when archived (may be null)
 revisions of an article.
 $title: Title object of the article
 $ids: Ids to set the visibility for
+$visibilityChangeMap: Map of revision id to oldBits and newBits.  This array can be
+  examined to determine exactly what visibility bits have changed for each
+  revision.  This array is of the form
+  [id => ['oldBits' => $oldBits, 'newBits' => $newBits], ... ]
 
 'ArticleRollbackComplete': After an article rollback is completed.
 $wikiPage: the WikiPage that was edited
@@ -899,6 +903,7 @@ $image: File
 'BlockIpComplete': After an IP address or user is blocked.
 $block: the Block object that was saved
 $user: the user who did the block (not the one being blocked)
+$priorBlock: the Block object for the prior block or null if there was none
 
 'BookInformation': Before information output on Special:Booksources.
 $isbn: ISBN to show information for
@@ -1135,85 +1140,6 @@ $page: SpecialPage object for DeletedContributions
 &$ret: the HTML line
 $row: the DB row for this line
 &$classes: the classes to add to the surrounding <li>
-
-'DifferenceEngineMarkPatrolledLink': Allows extensions to change the "mark as patrolled" link
-which is shown both on the diff header as well as on the bottom of a page, usually
-wrapped in a span element which has class="patrollink".
-$differenceEngine: DifferenceEngine object
-&$markAsPatrolledLink: The "mark as patrolled" link HTML (string)
-$rcid: Recent change ID (rc_id) for this change (int)
-$token: Patrol token; $rcid is used in generating this variable
-
-'DifferenceEngineMarkPatrolledRCID': Allows extensions to possibly change the rcid parameter.
-For example the rcid might be set to zero due to the user being the same as the
-performer of the change but an extension might still want to show it under certain
-conditions.
-&$rcid: rc_id (int) of the change or 0
-$differenceEngine: DifferenceEngine object
-$change: RecentChange object
-$user: User object representing the current user
-
-'DifferenceEngineNewHeader': Allows extensions to change the $newHeader variable, which
-contains information about the new revision, such as the revision's author, whether
-the revision was marked as a minor edit or not, etc.
-$differenceEngine: DifferenceEngine object
-&$newHeader: The string containing the various #mw-diff-otitle[1-5] divs, which
-include things like revision author info, revision comment, RevisionDelete link and more
-$formattedRevisionTools: Array containing revision tools, some of which may have
-been injected with the DiffRevisionTools hook
-$nextlink: String containing the link to the next revision (if any); also included in $newHeader
-$rollback: Rollback link (string) to roll this revision back to the previous one, if any
-$newminor: String indicating if the new revision was marked as a minor edit
-$diffOnly: Boolean parameter passed to DifferenceEngine#showDiffPage, indicating
-whether we should show just the diff; passed in as a query string parameter to the
-various URLs constructed here (i.e. $nextlink)
-$rdel: RevisionDelete link for the new revision, if the current user is allowed
-to use the RevisionDelete feature
-$unhide: Boolean parameter indicating whether to show RevisionDeleted revisions
-
-'DifferenceEngineOldHeader': Allows extensions to change the $oldHeader variable, which
-contains information about the old revision, such as the revision's author, whether
-the revision was marked as a minor edit or not, etc.
-$differenceEngine: DifferenceEngine object
-&$oldHeader: The string containing the various #mw-diff-otitle[1-5] divs, which
-include things like revision author info, revision comment, RevisionDelete link and more
-$prevlink: String containing the link to the previous revision (if any); also included in $oldHeader
-$oldminor: String indicating if the old revision was marked as a minor edit
-$diffOnly: Boolean parameter passed to DifferenceEngine#showDiffPage, indicating
-whether we should show just the diff; passed in as a query string parameter to the
-various URLs constructed here (i.e. $prevlink)
-$ldel: RevisionDelete link for the old revision, if the current user is allowed
-to use the RevisionDelete feature
-$unhide: Boolean parameter indicating whether to show RevisionDeleted revisions
-
-'DifferenceEngineOldHeaderNoOldRev': Change the $oldHeader variable in cases when
-there is no old revision
-&$oldHeader: empty string by default
-
-'DifferenceEngineRenderRevisionAddParserOutput': Allows extensions to change the parser output.
-Return false to not add parser output via OutputPage's addParserOutput method.
-$differenceEngine: DifferenceEngine object
-$out: OutputPage object
-$parserOutput: ParserOutput object
-$wikiPage: WikiPage object
-
-'DifferenceEngineRenderRevisionShowFinalPatrolLink': An extension can hook into this hook
-point and return false to not show the final "mark as patrolled" link on the bottom
-of a page.
-This hook has no arguments.
-
-'DifferenceEngineShowDiff': Allows extensions to affect the diff text which
-eventually gets sent to the OutputPage object.
-$differenceEngine: DifferenceEngine object
-
-'DifferenceEngineShowEmptyOldContent': Allows extensions to change the diff table
-body (without header) in cases when there is no old revision or the old and new
-revisions are identical.
-$differenceEngine: DifferenceEngine object
-
-'DifferenceEngineShowDiffPage': Add additional output via the available OutputPage
-object into the diff view
-$out: OutputPage object
 
 'DiffRevisionTools': Override or extend the revision tools available from the
 diff view, i.e. undo, etc.
@@ -2434,23 +2360,11 @@ cache or return false to not use it.
 &$parser: Parser object
 &$varCache: variable cache (array)
 
-'ParserLimitReport': DEPRECATED! Use ParserLimitReportPrepare and
-ParserLimitReportFormat instead.
+'ParserLimitReport': DEPRECATED! Use ParserLimitReportPrepare instead.
 Called at the end of Parser:parse() when the parser will
 include comments about size of the text parsed.
 $parser: Parser object
 &$limitReport: text that will be included (without comment tags)
-
-'ParserLimitReportFormat': Called for each row in the parser limit report that
-needs formatting. If nothing handles this hook, the default is to use "$key" to
-get the label, and "$key-value" or "$key-value-text"/"$key-value-html" to
-format the value.
-$key: Key for the limit report item (string)
-&$value: Value of the limit report item
-&$report: String onto which to append the data
-$isHTML: If true, $report is an HTML table with two columns; if false, it's
-  text intended for display in a monospaced font.
-$localize: If false, $report should be output in English.
 
 'ParserLimitReportPrepare': Called at the end of Parser:parse() when the parser
 will include comments about size of the text parsed. Hooks should use
@@ -3377,9 +3291,23 @@ in most cases over UploadVerification.
 $upload: (object) an instance of UploadBase, with all info about the upload
 $mime: (string) The uploaded file's MIME type, as detected by MediaWiki.
   Handlers will typically only apply for specific MIME types.
-&$error: (object) output: true if the file is valid. Otherwise, an indexed array
-  representing the problem with the file, where the first element is the message
-  key and the remaining elements are used as parameters to the message.
+&$error: (object) output: true if the file is valid. Otherwise, set this to the reason
+  in the form of array( messagename, param1, param2, ... ) or a MessageSpecifier
+  instance (you might want to use ApiMessage to provide machine-readable details
+  for the API).
+
+'UploadVerifyUpload': Upload verification, based on both file properties like
+MIME type (same as UploadVerifyFile) and the information entered by the user
+(upload comment, file page contents etc.).
+$upload: (object) An instance of UploadBase, with all info about the upload
+$user: (object) An instance of User, the user uploading this file
+$props: (array) File properties, as returned by FSFile::getPropsFromPath()
+$comment: (string) Upload log comment (also used as edit summary)
+$pageText: (string) File description page text (only used for new uploads)
+&$error: output: If the file upload should be prevented, set this to the reason
+  in the form of array( messagename, param1, param2, ... ) or a MessageSpecifier
+  instance (you might want to use ApiMessage to provide machine-readable details
+  for the API).
 
 'UserIsBot': when determining whether a user is a bot account
 $user: the user
@@ -3527,6 +3455,9 @@ $user: User object for the logged-in user
 For functionality that needs to run after any login (API or web) use UserLoggedIn.
 &$user: the user object that was created on login
 &$inject_html: Any HTML to inject after the "logged in" message.
+$direct: (bool) The hook is called directly after a successful login. This will only happen once
+  per login. A UserLoginComplete call with direct=false can happen when the user visits the login
+  page while already logged in.
 
 'UserLoginForm': DEPRECATED! Create an AuthenticationProvider instead.
 Manipulate the login form.
