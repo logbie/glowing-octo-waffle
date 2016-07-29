@@ -1422,97 +1422,103 @@ class LocalFile extends File {
 		# Do some cache purges after final commit so that:
 		# a) Changes are more likely to be seen post-purge
 		# b) They won't cause rollback of the log publish/update above
-		$that = $this;
-		$dbw->onTransactionIdle( function () use (
-			$that, $reupload, $wikiPage, $newPageContent, $comment, $user, $logEntry, $logId, $descId, $tags
-		) {
-			# Update memcache after the commit
-			$that->invalidateCache();
+		DeferredUpdates::addUpdate(
+			new AutoCommitUpdate(
+				$dbw,
+				__METHOD__,
+				function () use (
+					$reupload, $wikiPage, $newPageContent, $comment, $user,
+					$logEntry, $logId, $descId, $tags
+				) {
+					# Update memcache after the commit
+					$this->invalidateCache();
 
-			$updateLogPage = false;
-			if ( $newPageContent ) {
-				# New file page; create the description page.
-				# There's already a log entry, so don't make a second RC entry
-				# CDN and file cache for the description page are purged by doEditContent.
-				$status = $wikiPage->doEditContent(
-					$newPageContent,
-					$comment,
-					EDIT_NEW | EDIT_SUPPRESS_RC,
-					false,
-					$user
-				);
+					$updateLogPage = false;
+					if ( $newPageContent ) {
+						# New file page; create the description page.
+						# There's already a log entry, so don't make a second RC entry
+						# CDN and file cache for the description page are purged by doEditContent.
+						$status = $wikiPage->doEditContent(
+							$newPageContent,
+							$comment,
+							EDIT_NEW | EDIT_SUPPRESS_RC,
+							false,
+							$user
+						);
 
-				if ( isset( $status->value['revision'] ) ) {
-					// Associate new page revision id
-					$logEntry->setAssociatedRevId( $status->value['revision']->getId() );
+						if ( isset( $status->value['revision'] ) ) {
+							// Associate new page revision id
+							$logEntry->setAssociatedRevId( $status->value['revision']->getId() );
+						}
+						// This relies on the resetArticleID() call in WikiPage::insertOn(),
+						// which is triggered on $descTitle by doEditContent() above.
+						if ( isset( $status->value['revision'] ) ) {
+							/** @var $rev Revision */
+							$rev = $status->value['revision'];
+							$updateLogPage = $rev->getPage();
+						}
+					} else {
+						# Existing file page: invalidate description page cache
+						$wikiPage->getTitle()->invalidateCache();
+						$wikiPage->getTitle()->purgeSquid();
+						# Allow the new file version to be patrolled from the page footer
+						Article::purgePatrolFooterCache( $descId );
+					}
+
+					# Update associated rev id. This should be done by $logEntry->insert() earlier,
+					# but setAssociatedRevId() wasn't called at that point yet...
+					$logParams = $logEntry->getParameters();
+					$logParams['associated_rev_id'] = $logEntry->getAssociatedRevId();
+					$update = [ 'log_params' => LogEntryBase::makeParamBlob( $logParams ) ];
+					if ( $updateLogPage ) {
+						# Also log page, in case where we just created it above
+						$update['log_page'] = $updateLogPage;
+					}
+					$this->getRepo()->getMasterDB()->update(
+						'logging',
+						$update,
+						[ 'log_id' => $logId ],
+						__METHOD__
+					);
+					$this->getRepo()->getMasterDB()->insert(
+						'log_search',
+						[
+							'ls_field' => 'associated_rev_id',
+							'ls_value' => $logEntry->getAssociatedRevId(),
+							'ls_log_id' => $logId,
+						],
+						__METHOD__
+					);
+
+					# Add change tags, if any
+					if ( $tags ) {
+						$logEntry->setTags( $tags );
+					}
+
+					# Uploads can be patrolled
+					$logEntry->setIsPatrollable( true );
+
+					# Now that the log entry is up-to-date, make an RC entry.
+					$logEntry->publish( $logId );
+
+					# Run hook for other updates (typically more cache purging)
+					Hooks::run( 'FileUpload', [ $this, $reupload, !$newPageContent ] );
+
+					if ( $reupload ) {
+						# Delete old thumbnails
+						$this->purgeThumbnails();
+						# Remove the old file from the CDN cache
+						DeferredUpdates::addUpdate(
+							new CdnCacheUpdate( [ $this->getUrl() ] ),
+							DeferredUpdates::PRESEND
+						);
+					} else {
+						# Update backlink pages pointing to this title if created
+						LinksUpdate::queueRecursiveJobsForTable( $this->getTitle(), 'imagelinks' );
+					}
 				}
-				// This relies on the resetArticleID() call in WikiPage::insertOn(),
-				// which is triggered on $descTitle by doEditContent() above.
-				if ( isset( $status->value['revision'] ) ) {
-					/** @var $rev Revision */
-					$rev = $status->value['revision'];
-					$updateLogPage = $rev->getPage();
-				}
-			} else {
-				# Existing file page: invalidate description page cache
-				$wikiPage->getTitle()->invalidateCache();
-				$wikiPage->getTitle()->purgeSquid();
-				# Allow the new file version to be patrolled from the page footer
-				Article::purgePatrolFooterCache( $descId );
-			}
-
-			# Update associated rev id. This should be done by $logEntry->insert() earlier,
-			# but setAssociatedRevId() wasn't called at that point yet...
-			$logParams = $logEntry->getParameters();
-			$logParams['associated_rev_id'] = $logEntry->getAssociatedRevId();
-			$update = [ 'log_params' => LogEntryBase::makeParamBlob( $logParams ) ];
-			if ( $updateLogPage ) {
-				# Also log page, in case where we just created it above
-				$update['log_page'] = $updateLogPage;
-			}
-			$that->getRepo()->getMasterDB()->update(
-				'logging',
-				$update,
-				[ 'log_id' => $logId ],
-				__METHOD__
-			);
-			$that->getRepo()->getMasterDB()->insert(
-				'log_search',
-				[
-					'ls_field' => 'associated_rev_id',
-					'ls_value' => $logEntry->getAssociatedRevId(),
-					'ls_log_id' => $logId,
-				],
-				__METHOD__
-			);
-
-			# Add change tags, if any
-			if ( $tags ) {
-				$logEntry->setTags( $tags );
-			}
-
-			# Uploads can be patrolled
-			$logEntry->setIsPatrollable( true );
-
-			# Now that the log entry is up-to-date, make an RC entry.
-			$logEntry->publish( $logId );
-
-			# Run hook for other updates (typically more cache purging)
-			Hooks::run( 'FileUpload', [ $that, $reupload, !$newPageContent ] );
-
-			if ( $reupload ) {
-				# Delete old thumbnails
-				$that->purgeThumbnails();
-				# Remove the old file from the CDN cache
-				DeferredUpdates::addUpdate(
-					new CdnCacheUpdate( [ $that->getUrl() ] ),
-					DeferredUpdates::PRESEND
-				);
-			} else {
-				# Update backlink pages pointing to this title if created
-				LinksUpdate::queueRecursiveJobsForTable( $that->getTitle(), 'imagelinks' );
-			}
-		} );
+			)
+		);
 
 		if ( !$reupload ) {
 			# This is a new file, so update the image count
@@ -1914,13 +1920,35 @@ class LocalFile extends File {
 	}
 
 	/**
+	 * @return Status
+	 * @since 1.28
+	 */
+	public function acquireFileLock() {
+		return $this->getRepo()->getBackend()->lockFiles(
+			[ $this->getPath() ], LockManager::LOCK_EX, 10
+		);
+	}
+
+	/**
+	 * @return Status
+	 * @since 1.28
+	 */
+	public function releaseFileLock() {
+		return $this->getRepo()->getBackend()->unlockFiles(
+			[ $this->getPath() ], LockManager::LOCK_EX
+		);
+	}
+
+	/**
 	 * Start an atomic DB section and lock the image for update
 	 * or increments a reference counter if the lock is already held
+	 *
+	 * This method should not be used outside of LocalFile/LocalFile*Batch
 	 *
 	 * @throws LocalFileLockError Throws an error if the lock was not acquired
 	 * @return bool Whether the file lock owns/spawned the DB transaction
 	 */
-	function lock() {
+	public function lock() {
 		if ( !$this->locked ) {
 			$logger = LoggerFactory::getInstance( 'LocalFile' );
 
@@ -1930,9 +1958,7 @@ class LocalFile extends File {
 			// Bug 54736: use simple lock to handle when the file does not exist.
 			// SELECT FOR UPDATE prevents changes, not other SELECTs with FOR UPDATE.
 			// Also, that would cause contention on INSERT of similarly named rows.
-			$backend = $this->getRepo()->getBackend();
-			$lockPaths = [ $this->getPath() ]; // represents all versions of the file
-			$status = $backend->lockFiles( $lockPaths, LockManager::LOCK_EX, 10 );
+			$status = $this->acquireFileLock(); // represents all versions of the file
 			if ( !$status->isGood() ) {
 				$dbw->endAtomic( self::ATOMIC_SECTION_LOCK );
 				$logger->warning( "Failed to lock '{file}'", [ 'file' => $this->name ] );
@@ -1941,8 +1967,8 @@ class LocalFile extends File {
 			}
 			// Release the lock *after* commit to avoid row-level contention.
 			// Make sure it triggers on rollback() as well as commit() (T132921).
-			$dbw->onTransactionResolution( function () use ( $backend, $lockPaths, $logger ) {
-				$status = $backend->unlockFiles( $lockPaths, LockManager::LOCK_EX );
+			$dbw->onTransactionResolution( function () use ( $logger ) {
+				$status = $this->releaseFileLock();
 				if ( !$status->isGood() ) {
 					$logger->error( "Failed to unlock '{file}'", [ 'file' => $this->name ] );
 				}
@@ -1959,10 +1985,12 @@ class LocalFile extends File {
 	/**
 	 * Decrement the lock reference count and end the atomic section if it reaches zero
 	 *
+	 * This method should not be used outside of LocalFile/LocalFile*Batch
+	 *
 	 * The commit and loc release will happen when no atomic sections are active, which
 	 * may happen immediately or at some point after calling this
 	 */
-	function unlock() {
+	public function unlock() {
 		if ( $this->locked ) {
 			--$this->locked;
 			if ( !$this->locked ) {
@@ -1971,16 +1999,6 @@ class LocalFile extends File {
 				$this->lockedOwnTrx = false;
 			}
 		}
-	}
-
-	/**
-	 * Roll back the DB transaction and mark the image unlocked
-	 */
-	function unlockAndRollback() {
-		$this->locked = false;
-		$dbw = $this->repo->getMasterDB();
-		$dbw->rollback( __METHOD__ );
-		$this->lockedOwnTrx = false;
 	}
 
 	/**
@@ -2858,33 +2876,30 @@ class LocalFileMoveBatch {
 	public function execute() {
 		$repo = $this->file->repo;
 		$status = $repo->newGood();
-
-		$triplets = $this->getMoveTriplets();
-		$checkStatus = $this->removeNonexistentFiles( $triplets );
-		if ( !$checkStatus->isGood() ) {
-			$status->merge( $checkStatus );
-			return $status;
-		}
-		$triplets = $checkStatus->value;
 		$destFile = wfLocalFile( $this->target );
 
 		$this->file->lock(); // begin
 		$destFile->lock(); // quickly fail if destination is not available
-		// Rename the file versions metadata in the DB.
-		// This implicitly locks the destination file, which avoids race conditions.
-		// If we moved the files from A -> C before DB updates, another process could
-		// move files from B -> C at this point, causing storeBatch() to fail and thus
-		// cleanupTarget() to trigger. It would delete the C files and cause data loss.
-		$statusDb = $this->doDBUpdates();
+
+		$triplets = $this->getMoveTriplets();
+		$checkStatus = $this->removeNonexistentFiles( $triplets );
+		if ( !$checkStatus->isGood() ) {
+			$destFile->unlock();
+			$this->file->unlock();
+			$status->merge( $checkStatus ); // couldn't talk to file backend
+			return $status;
+		}
+		$triplets = $checkStatus->value;
+
+		// Verify the file versions metadata in the DB.
+		$statusDb = $this->verifyDBUpdates();
 		if ( !$statusDb->isGood() ) {
 			$destFile->unlock();
-			$this->file->unlockAndRollback();
+			$this->file->unlock();
 			$statusDb->ok = false;
 
 			return $statusDb;
 		}
-		wfDebugLog( 'imagemove', "Renamed {$this->file->getName()} in database: " .
-			"{$statusDb->successCount} successes, {$statusDb->failCount} failures" );
 
 		if ( !$repo->hasSha1Storage() ) {
 			// Copy the files into their new location.
@@ -2897,7 +2912,7 @@ class LocalFileMoveBatch {
 				// Delete any files copied over (while the destination is still locked)
 				$this->cleanupTarget( $triplets );
 				$destFile->unlock();
-				$this->file->unlockAndRollback(); // unlocks the destination
+				$this->file->unlock();
 				wfDebugLog( 'imagemove', "Error in moving files: "
 					. $statusMove->getWikiText( false, false, 'en' ) );
 				$statusMove->ok = false;
@@ -2906,6 +2921,12 @@ class LocalFileMoveBatch {
 			}
 			$status->merge( $statusMove );
 		}
+
+		// Rename the file versions metadata in the DB.
+		$this->doDBUpdates();
+
+		wfDebugLog( 'imagemove', "Renamed {$this->file->getName()} in database: " .
+			"{$statusDb->successCount} successes, {$statusDb->failCount} failures" );
 
 		$destFile->unlock();
 		$this->file->unlock(); // done
@@ -2919,14 +2940,53 @@ class LocalFileMoveBatch {
 	}
 
 	/**
-	 * Do the database updates and return a new FileRepoStatus indicating how
-	 * many rows where updated.
+	 * Verify the database updates and return a new FileRepoStatus indicating how
+	 * many rows would be updated.
 	 *
 	 * @return FileRepoStatus
 	 */
-	protected function doDBUpdates() {
+	protected function verifyDBUpdates() {
 		$repo = $this->file->repo;
 		$status = $repo->newGood();
+		$dbw = $this->db;
+
+		$hasCurrent = $dbw->selectField(
+			'image',
+			'1',
+			[ 'img_name' => $this->oldName ],
+			__METHOD__,
+			[ 'FOR UPDATE' ]
+		);
+		$oldRowCount = $dbw->selectField(
+			'oldimage',
+			'COUNT(*)',
+			[ 'oi_name' => $this->oldName ],
+			__METHOD__,
+			[ 'FOR UPDATE' ]
+		);
+
+		if ( $hasCurrent ) {
+			$status->successCount++;
+		} else {
+			$status->failCount++;
+		}
+		$status->successCount += $oldRowCount;
+		// Bug 34934: oldCount is based on files that actually exist.
+		// There may be more DB rows than such files, in which case $affected
+		// can be greater than $total. We use max() to avoid negatives here.
+		$status->failCount += max( 0, $this->oldCount - $oldRowCount );
+		if ( $status->failCount ) {
+			$status->error( 'imageinvalidfilename' );
+		}
+
+		return $status;
+	}
+
+	/**
+	 * Do the database updates and return a new FileRepoStatus indicating how
+	 * many rows where updated.
+	 */
+	protected function doDBUpdates() {
 		$dbw = $this->db;
 
 		// Update current image
@@ -2936,16 +2996,6 @@ class LocalFileMoveBatch {
 			[ 'img_name' => $this->oldName ],
 			__METHOD__
 		);
-
-		if ( $dbw->affectedRows() ) {
-			$status->successCount++;
-		} else {
-			$status->failCount++;
-			$status->fatal( 'imageinvalidfilename' );
-
-			return $status;
-		}
-
 		// Update old images
 		$dbw->update(
 			'oldimage',
@@ -2957,19 +3007,6 @@ class LocalFileMoveBatch {
 			[ 'oi_name' => $this->oldName ],
 			__METHOD__
 		);
-
-		$affected = $dbw->affectedRows();
-		$total = $this->oldCount;
-		$status->successCount += $affected;
-		// Bug 34934: $total is based on files that actually exist.
-		// There may be more DB rows than such files, in which case $affected
-		// can be greater than $total. We use max() to avoid negatives here.
-		$status->failCount += max( 0, $total - $affected );
-		if ( $status->failCount ) {
-			$status->error( 'imageinvalidfilename' );
-		}
-
-		return $status;
 	}
 
 	/**

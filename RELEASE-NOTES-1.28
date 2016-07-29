@@ -49,6 +49,10 @@ production.
 === Bug fixes in 1.28 ===
 
 === Action API changes in 1.28 ===
+* Added 'maxarticlesize' property to action=query&meta=siteinfo which contains
+  the value of $wgMaxArticleSize.
+* Property 'modulemessages' from action=parse&prop=modules was removed
+  (deprecated since 1.26).
 
 === Action API internal changes in 1.28 ===
 * Added a new hook, 'ApiMakeParserOptions', to allow extensions to better
@@ -75,6 +79,14 @@ changes to languages because of Phabricator reports.
 * The 'UserLoginComplete' hook has a new parameter to differentiate between actual
   login and visiting the login page while already logged in.
 * ResourceLoader::makeLoaderURL() was removed (deprecated since 1.24).
+* $.fn.liveAndTestAtStart was removed (deprecated since 1.24).
+* Linker::link() and Linker::linkKnown() were deprecated; please instead use
+  MediaWiki\Linker\LinkRenderer. In addition, the LinkBegin and LinkEnd hooks
+  were replaced by HtmlPageLinkRendererBegin and HtmlPageLinkRendererEnd
+  respectively. See docs/hooks.txt for the specific changes needed for those hooks.
+* The 'ParserLimitReportFormat' hook was removed.
+* Disabled "bug 2702" HTML tidying of parsed UI messages on wikis where Tidy is
+  disabled.
 
 == Compatibility ==
 
