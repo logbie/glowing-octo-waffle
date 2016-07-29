@@ -1004,14 +1004,10 @@ class LoadBalancer {
 	 * Close all open connections
 	 */
 	public function closeAll() {
-		foreach ( $this->mConns as $conns2 ) {
-			foreach ( $conns2 as $conns3 ) {
-				/** @var DatabaseBase $conn */
-				foreach ( $conns3 as $conn ) {
-					$conn->close();
-				}
-			}
-		}
+		$this->forEachOpenConnection( function ( DatabaseBase $conn ) {
+			$conn->close();
+		} );
+
 		$this->mConns = [
 			'local' => [],
 			'foreignFree' => [],
@@ -1051,35 +1047,68 @@ class LoadBalancer {
 	 * @param string $fname Caller name
 	 */
 	public function commitAll( $fname = __METHOD__ ) {
-		foreach ( $this->mConns as $conns2 ) {
-			foreach ( $conns2 as $conns3 ) {
-				/** @var DatabaseBase[] $conns3 */
-				foreach ( $conns3 as $conn ) {
-					if ( $conn->trxLevel() ) {
-						$conn->commit( $fname, 'flush' );
-					}
-				}
-			}
-		}
+		$this->forEachOpenConnection( function ( DatabaseBase $conn ) use ( $fname ) {
+			$conn->commit( $fname, 'flush' );
+		} );
 	}
 
 	/**
-	 * Issue COMMIT only on master, only if queries were done on connection
+	 * Perform all pre-commit callbacks that remain part of the atomic transactions
+	 * and disable any post-commit callbacks until runMasterPostCommitCallbacks()
+	 * @since 1.28
+	 */
+	public function runMasterPreCommitCallbacks() {
+		$this->forEachOpenMasterConnection( function ( DatabaseBase $conn ) {
+			// Any error will cause all DB transactions to be rolled back together.
+			$conn->runOnTransactionPreCommitCallbacks();
+			// Defer post-commit callbacks until COMMIT finishes for all DBs.
+			$conn->setPostCommitCallbackSupression( true );
+		} );
+	}
+
+	/**
+	 * Perform all pre-commit checks for things like replication safety
+	 * @param array $options Includes:
+	 *   - maxWriteDuration : max write query duration time in seconds
+	 * @throws DBTransactionError
+	 * @since 1.28
+	 */
+	public function approveMasterChanges( array $options ) {
+		$limit = isset( $options['maxWriteDuration'] ) ? $options['maxWriteDuration'] : 0;
+		$this->forEachOpenMasterConnection( function ( DatabaseBase $conn ) use ( $limit ) {
+			// Assert that the time to replicate the transaction will be sane.
+			// If this fails, then all DB transactions will be rollback back together.
+			$time = $conn->pendingWriteQueryDuration();
+			if ( $limit > 0 && $time > $limit ) {
+				throw new DBTransactionError(
+					$conn,
+					wfMessage( 'transaction-duration-limit-exceeded', $time, $limit )->text()
+				);
+			}
+		} );
+	}
+
+	/**
+	 * Issue COMMIT on all master connections where writes where done
 	 * @param string $fname Caller name
 	 */
 	public function commitMasterChanges( $fname = __METHOD__ ) {
-		$masterIndex = $this->getWriterIndex();
-		foreach ( $this->mConns as $conns2 ) {
-			if ( empty( $conns2[$masterIndex] ) ) {
-				continue;
+		$this->forEachOpenMasterConnection( function ( DatabaseBase $conn ) use ( $fname ) {
+			if ( $conn->writesOrCallbacksPending() ) {
+				$conn->commit( $fname, 'flush' );
 			}
-			/** @var DatabaseBase $conn */
-			foreach ( $conns2[$masterIndex] as $conn ) {
-				if ( $conn->trxLevel() && $conn->writesOrCallbacksPending() ) {
-					$conn->commit( $fname, 'flush' );
-				}
-			}
-		}
+		} );
+	}
+
+	/**
+	 * Issue all pending post-commit callbacks
+	 * @since 1.28
+	 */
+	public function runMasterPostCommitCallbacks() {
+		$this->forEachOpenMasterConnection( function ( DatabaseBase $db ) {
+			$db->setPostCommitCallbackSupression( false );
+			$db->runOnTransactionIdleCallbacks( IDatabase::TRIGGER_COMMIT );
+		} );
 	}
 
 	/**
@@ -1112,28 +1141,6 @@ class LoadBalancer {
 		if ( $failedServers ) {
 			throw new DBExpectedError( null, "Rollback failed on server(s) " .
 				implode( ', ', array_unique( $failedServers ) ) );
-		}
-	}
-
-	/**
-	 * Call runOnTransactionPreCommitCallbacks() on all DB handles
-	 *
-	 * This method should not be used outside of LBFactory/LoadBalancer
-	 *
-	 * @since 1.28
-	 */
-	public function runPreCommitCallbacks() {
-		$masterIndex = $this->getWriterIndex();
-		foreach ( $this->mConns as $conns2 ) {
-			if ( empty( $conns2[$masterIndex] ) ) {
-				continue;
-			}
-			/** @var DatabaseBase $conn */
-			foreach ( $conns2[$masterIndex] as $conn ) {
-				if ( $conn->trxLevel() && $conn->writesOrCallbacksPending() ) {
-					$conn->runOnTransactionPreCommitCallbacks();
-				}
-			}
 		}
 	}
 
@@ -1305,16 +1312,11 @@ class LoadBalancer {
 	 */
 	public function pingAll() {
 		$success = true;
-		foreach ( $this->mConns as $conns2 ) {
-			foreach ( $conns2 as $conns3 ) {
-				/** @var DatabaseBase[] $conns3 */
-				foreach ( $conns3 as $conn ) {
-					if ( !$conn->ping() ) {
-						$success = false;
-					}
-				}
+		$this->forEachOpenConnection( function ( DatabaseBase $conn ) use ( &$success ) {
+			if ( !$conn->ping() ) {
+				$success = false;
 			}
-		}
+		} );
 
 		return $success;
 	}
@@ -1325,9 +1327,28 @@ class LoadBalancer {
 	 * @param array $params
 	 */
 	public function forEachOpenConnection( $callback, array $params = [] ) {
-		foreach ( $this->mConns as $conns2 ) {
-			foreach ( $conns2 as $conns3 ) {
-				foreach ( $conns3 as $conn ) {
+		foreach ( $this->mConns as $connsByServer ) {
+			foreach ( $connsByServer as $serverConns ) {
+				foreach ( $serverConns as $conn ) {
+					$mergedParams = array_merge( [ $conn ], $params );
+					call_user_func_array( $callback, $mergedParams );
+				}
+			}
+		}
+	}
+
+	/**
+	 * Call a function with each open connection object to a master
+	 * @param callable $callback
+	 * @param array $params
+	 * @since 1.28
+	 */
+	public function forEachOpenMasterConnection( $callback, array $params = [] ) {
+		$masterIndex = $this->getWriterIndex();
+		foreach ( $this->mConns as $connsByServer ) {
+			if ( isset( $connsByServer[$masterIndex] ) ) {
+				/** @var DatabaseBase $conn */
+				foreach ( $connsByServer[$masterIndex] as $conn ) {
 					$mergedParams = array_merge( [ $conn ], $params );
 					call_user_func_array( $callback, $mergedParams );
 				}

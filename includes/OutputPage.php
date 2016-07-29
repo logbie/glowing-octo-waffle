@@ -290,6 +290,9 @@ class OutputPage extends ContextSource {
 	 */
 	private $copyrightUrl;
 
+	/** @var array Profiling data */
+	private $limitReportData = [];
+
 	/**
 	 * Constructor for OutputPage. This should not be called directly.
 	 * Instead a new RequestContext should be created and it will implicitly create
@@ -602,29 +605,6 @@ class OutputPage extends ContextSource {
 	 */
 	public function addModuleStyles( $modules ) {
 		$this->mModuleStyles = array_merge( $this->mModuleStyles, (array)$modules );
-	}
-
-	/**
-	 * Get the list of module messages to include on this page
-	 *
-	 * @deprecated since 1.26 Obsolete
-	 * @param bool $filter
-	 * @param string|null $position
-	 * @return array Array of module names
-	 */
-	public function getModuleMessages( $filter = false, $position = null ) {
-		wfDeprecated( __METHOD__, '1.26' );
-		return [];
-	}
-
-	/**
-	 * Load messages of one or more ResourceLoader modules.
-	 *
-	 * @deprecated since 1.26 Use addModules() instead
-	 * @param string|array $modules Module name (string) or array of module names
-	 */
-	public function addModuleMessages( $modules ) {
-		wfDeprecated( __METHOD__, '1.26' );
 	}
 
 	/**
@@ -1777,10 +1757,13 @@ class OutputPage extends ContextSource {
 			}
 		}
 
-		// enable OOUI if requested via ParserOutput
+		// Enable OOUI if requested via ParserOutput
 		if ( $parserOutput->getEnableOOUI() ) {
 			$this->enableOOUI();
 		}
+
+		// Include profiling data
+		$this->limitReportData = $parserOutput->getLimitReportData();
 
 		// Link flags are ignored for now, but may in the future be
 		// used to mark individual language links.
@@ -3098,7 +3081,13 @@ class OutputPage extends ContextSource {
 	 * @return string
 	 */
 	function getBottomScripts() {
-		return $this->getScriptsForBottomQueue();
+		return $this->getScriptsForBottomQueue() .
+			ResourceLoader::makeInlineScript(
+				ResourceLoader::makeConfigSetScript(
+					[ 'wgPageParseReport' => $this->limitReportData ],
+					true
+				)
+			);
 	}
 
 	/**
