@@ -533,6 +533,7 @@ class DifferenceEngine extends ContextSource {
 			// Build the link
 			if ( $rcid ) {
 				$this->getOutput()->preventClickjacking();
+				$this->getOutput()->addModuleStyles( 'mediawiki.page.patrol' );
 				if ( $wgEnableAPI && $wgEnableWriteAPI
 					&& $user->isAllowed( 'writeapi' )
 				) {
@@ -815,21 +816,6 @@ class DifferenceEngine extends ContextSource {
 
 		$otext = $old->serialize();
 		$ntext = $new->serialize();
-
-		return $this->generateTextDiffBody( $otext, $ntext );
-	}
-
-	/**
-	 * Generate a diff, no caching
-	 *
-	 * @param string $otext Old text, must be already segmented
-	 * @param string $ntext New text, must be already segmented
-	 *
-	 * @return bool|string
-	 * @deprecated since 1.21, use generateContentDiffBody() instead!
-	 */
-	public function generateDiffBody( $otext, $ntext ) {
-		ContentHandler::deprecated( __METHOD__, "1.21" );
 
 		return $this->generateTextDiffBody( $otext, $ntext );
 	}

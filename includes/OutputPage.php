@@ -633,7 +633,7 @@ class OutputPage extends ContextSource {
 	}
 
 	/**
-	 * Add or replace an header item to the output
+	 * Add or replace a head item to the output
 	 *
 	 * Whenever possible, use more specific options like ResourceLoader modules,
 	 * OutputPage::addLink(), OutputPage::addMetaLink() and OutputPage::addFeedLink()
@@ -646,6 +646,16 @@ class OutputPage extends ContextSource {
 	 */
 	public function addHeadItem( $name, $value ) {
 		$this->mHeadItems[$name] = $value;
+	}
+
+	/**
+	 * Add one or more head items to the output
+	 *
+	 * @since 1.28
+	 * @param string|string[] $value Raw HTML
+	 */
+	public function addHeadItems( $values ) {
+		$this->mHeadItems = array_merge( $this->mHeadItems, (array)$values );
 	}
 
 	/**
@@ -1763,7 +1773,7 @@ class OutputPage extends ContextSource {
 		}
 
 		// Include profiling data
-		$this->limitReportData = $parserOutput->getLimitReportData();
+		$this->setLimitReportData( $parserOutput->getLimitReportData() );
 
 		// Link flags are ignored for now, but may in the future be
 		// used to mark individual language links.
@@ -3650,7 +3660,7 @@ class OutputPage extends ContextSource {
 		) {
 			// We're on a preview of a CSS subpage
 			// Exclude this page from the user module in case it's in there (bug 26283)
-			$link = $this->makeResourceLoaderLink( 'user', ResourceLoaderModule::TYPE_STYLES,
+			$link = $this->makeResourceLoaderLink( 'user.styles', ResourceLoaderModule::TYPE_STYLES,
 				[ 'excludepage' => $this->getTitle()->getPrefixedDBkey() ]
 			);
 			$otherTags = array_merge( $otherTags, $link['html'] );
@@ -3665,7 +3675,7 @@ class OutputPage extends ContextSource {
 			$otherTags[] = Html::inlineStyle( $previewedCSS );
 		} else {
 			// Load the user styles normally
-			$moduleStyles[] = 'user';
+			$moduleStyles[] = 'user.styles';
 		}
 
 		// Per-user preference styles
@@ -4040,5 +4050,13 @@ class OutputPage extends ContextSource {
 		// Used by 'skipFunction' of the four 'oojs-ui.styles.*' modules. Please don't treat this as a
 		// public API or you'll be severely disappointed when T87871 is fixed and it disappears.
 		$this->addMeta( 'X-OOUI-PHP', '1' );
+	}
+
+	/**
+	 * @param array $data Data from ParserOutput::getLimitReportData()
+	 * @since 1.28
+	 */
+	public function setLimitReportData( array $data ) {
+		$this->limitReportData = $data;
 	}
 }

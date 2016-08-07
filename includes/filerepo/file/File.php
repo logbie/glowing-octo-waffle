@@ -1028,7 +1028,7 @@ abstract class File implements IDBAccessObject {
 	 * @param array $params An associative array of handler-specific parameters.
 	 *   Typical keys are width, height and page.
 	 * @param int $flags A bitfield, may contain self::RENDER_NOW to force rendering
-	 * @return MediaTransformOutput|bool False on failure
+	 * @return ThumbnailImage|MediaTransformOutput|bool False on failure
 	 */
 	function transform( $params, $flags = 0 ) {
 		global $wgThumbnailEpoch;
@@ -1324,7 +1324,7 @@ abstract class File implements IDBAccessObject {
 	/**
 	 * Creates a temp FS file with the same extension and the thumbnail
 	 * @param string $thumbPath Thumbnail path
-	 * @return TempFSFile
+	 * @return TempFSFile|null
 	 */
 	protected function makeTransformTmpFile( $thumbPath ) {
 		$thumbExt = FileBackend::extensionFromPath( $thumbPath );

@@ -212,7 +212,7 @@ class UserTest extends MediaWikiTestCase {
 	 * @group medium
 	 * @covers User::getEditCount
 	 */
-	public function testEditCount() {
+	public function testGetEditCount() {
 		$user = $this->getMutableTestUser()->getUser();
 
 		// let the user have a few (3) edits
@@ -221,21 +221,59 @@ class UserTest extends MediaWikiTestCase {
 			$page->doEdit( (string)$i, 'test', 0, false, $user );
 		}
 
-		$user->clearInstanceCache();
 		$this->assertEquals(
 			3,
 			$user->getEditCount(),
 			'After three edits, the user edit count should be 3'
 		);
 
-		// increase the edit count and clear the cache
+		// increase the edit count
 		$user->incEditCount();
 
-		$user->clearInstanceCache();
 		$this->assertEquals(
 			4,
 			$user->getEditCount(),
 			'After increasing the edit count manually, the user edit count should be 4'
+		);
+	}
+
+	/**
+	 * Test User::editCount
+	 * @group medium
+	 * @covers User::getEditCount
+	 */
+	public function testGetEditCountForAnons() {
+		$user = User::newFromName( 'Anonymous' );
+
+		$this->assertNull(
+			$user->getEditCount(),
+			'Edit count starts null for anonymous users.'
+		);
+
+		$user->incEditCount();
+
+		$this->assertNull(
+			$user->getEditCount(),
+			'Edit count remains null for anonymous users despite calls to increase it.'
+		);
+	}
+
+	/**
+	 * Test User::editCount
+	 * @group medium
+	 * @covers User::incEditCount
+	 */
+	public function testIncEditCount() {
+		$user = $this->getMutableTestUser()->getUser();
+		$user->incEditCount();
+
+		$reloadedUser = User::newFromId( $user->getId() );
+		$reloadedUser->incEditCount();
+
+		$this->assertEquals(
+			2,
+			$reloadedUser->getEditCount(),
+			'Increasing the edit count after a fresh load leaves the object up to date.'
 		);
 	}
 
@@ -450,5 +488,38 @@ class UserTest extends MediaWikiTestCase {
 			$user->checkAndSetTouched(), "checkAndSetTouched() succeded #2" );
 		$this->assertGreaterThan(
 			$touched, $user->getDBTouched(), "user_touched increased with casOnTouched() #2" );
+	}
+
+	/**
+	 * @covers User::findUsersByGroup
+	 */
+	public function testFindUsersByGroup() {
+		$users = User::findUsersByGroup( [] );
+		$this->assertEquals( 0, iterator_count( $users ) );
+
+		$users = User::findUsersByGroup( 'foo' );
+		$this->assertEquals( 0, iterator_count( $users ) );
+
+		$user = $this->getMutableTestUser( [ 'foo' ] )->getUser();
+		$users = User::findUsersByGroup( 'foo' );
+		$this->assertEquals( 1, iterator_count( $users ) );
+		$users->rewind();
+		$this->assertTrue( $user->equals( $users->current() ) );
+
+		// arguments have OR relationship
+		$user2 = $this->getMutableTestUser( [ 'bar' ] )->getUser();
+		$users = User::findUsersByGroup( [ 'foo', 'bar' ] );
+		$this->assertEquals( 2, iterator_count( $users ) );
+		$users->rewind();
+		$this->assertTrue( $user->equals( $users->current() ) );
+		$users->next();
+		$this->assertTrue( $user2->equals( $users->current() ) );
+
+		// users are not duplicated
+		$user = $this->getMutableTestUser( [ 'baz', 'boom' ] )->getUser();
+		$users = User::findUsersByGroup( [ 'baz', 'boom' ] );
+		$this->assertEquals( 1, iterator_count( $users ) );
+		$users->rewind();
+		$this->assertTrue( $user->equals( $users->current() ) );
 	}
 }

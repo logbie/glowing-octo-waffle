@@ -36,6 +36,11 @@ production.
 * Added a new hook, 'UploadVerifyUpload', which can be used to reject a file
   upload. Unlike 'UploadVerifyFile' it provides information about upload comment
   and the file description page, but does not run for uploads to stash.
+* (T141604) Extensions can now provide a better error message when their
+  maintenance scripts are run without the extension being installed.
+* (T8948) Numeric sorting in categories is now supported by setting $wgCategoryCollation
+  to uca-default-u-kn or uca-<langcode>-u-kn. If migrating from another
+  collation, you will need to run the updateCollation.php maintenance script.
 
 === External library changes in 1.28 ===
 
@@ -53,6 +58,9 @@ production.
   the value of $wgMaxArticleSize.
 * Property 'modulemessages' from action=parse&prop=modules was removed
   (deprecated since 1.26).
+* The following response properties from action=login, deprecated in 1.27, are
+  now removed: lgtoken, cookieprefix, sessionid. Clients should handle cookies
+  to properly manage session state.
 
 === Action API internal changes in 1.28 ===
 * Added a new hook, 'ApiMakeParserOptions', to allow extensions to better
@@ -84,9 +92,19 @@ changes to languages because of Phabricator reports.
   MediaWiki\Linker\LinkRenderer. In addition, the LinkBegin and LinkEnd hooks
   were replaced by HtmlPageLinkRendererBegin and HtmlPageLinkRendererEnd
   respectively. See docs/hooks.txt for the specific changes needed for those hooks.
+* Aliases for Linker methods, deprecated since 1.21, were removed from Skin:
+  * Skin::commentBlock() (use Linker::commentBlock() instead)
+  * Skin::generateRollback() (use Linker::generateRollback() instead)
+  * Skin::link() (use MediaWiki\Linker\LinkRenderer instead)
+  * Skin::linkKnown() (use MediaWiki\Linker\LinkRenderer instead)
+  * Skin::userLink() (use Linker::userLink() instead)
+  * Skin::userToolLinks() (use Linker::userToolLinks() instead)
 * The 'ParserLimitReportFormat' hook was removed.
 * Disabled "bug 2702" HTML tidying of parsed UI messages on wikis where Tidy is
   disabled.
+* DifferenceEngine::generateDiffBody() was removed (deprecated since 1.21).
+* UploadBase::stashFileGetKey() and UploadBase::stashSession() were deprecated.
+  Use ...->stashFile()->getFileKey() instead.
 
 == Compatibility ==
 

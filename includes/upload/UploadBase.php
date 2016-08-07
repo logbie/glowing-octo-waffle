@@ -53,7 +53,16 @@ abstract class UploadBase {
 		'ISO-8859-1',
 		'ISO-8859-2',
 		'UTF-16',
-		'UTF-32'
+		'UTF-32',
+		'WINDOWS-1250',
+		'WINDOWS-1251',
+		'WINDOWS-1252',
+		'WINDOWS-1253',
+		'WINDOWS-1254',
+		'WINDOWS-1255',
+		'WINDOWS-1256',
+		'WINDOWS-1257',
+		'WINDOWS-1258',
 	];
 
 	const SUCCESS = 0;
@@ -951,8 +960,6 @@ abstract class UploadBase {
 	 * @return UploadStashFile Stashed file
 	 */
 	public function stashFile( User $user = null ) {
-		// was stashSessionFile
-
 		$stash = RepoGroup::singleton()->getLocalRepo()->getUploadStash( $user );
 		$file = $stash->stashFile( $this->mTempPath, $this->getSourceType() );
 		$this->mLocalFile = $file;
@@ -964,19 +971,23 @@ abstract class UploadBase {
 	 * Stash a file in a temporary directory, returning a key which can be used
 	 * to find the file again. See stashFile().
 	 *
+	 * @deprecated since 1.28
 	 * @return string File key
 	 */
 	public function stashFileGetKey() {
+		wfDeprecated( __METHOD__, '1.28' );
 		return $this->stashFile()->getFileKey();
 	}
 
 	/**
 	 * alias for stashFileGetKey, for backwards compatibility
 	 *
+	 * @deprecated since 1.28
 	 * @return string File key
 	 */
 	public function stashSession() {
-		return $this->stashFileGetKey();
+		wfDeprecated( __METHOD__, '1.28' );
+		return $this->stashFile()->getFileKey();
 	}
 
 	/**
