@@ -1043,14 +1043,16 @@ class WikiPage implements Page, IDBAccessObject {
 	 *
 	 * @since 1.19
 	 * @param ParserOptions $parserOptions ParserOptions to use for the parse operation
-	 * @param null|int $oldid Revision ID to get the text from, passing null or 0 will
-	 *   get the current revision (default value)
-	 *
-	 * @return ParserOutput|bool ParserOutput or false if the revision was not found
+	 * @param null|int      $oldid Revision ID to get the text from, passing null or 0 will
+	 *                             get the current revision (default value)
+	 * @param bool          $forceParse Force reindexing, regardless of cache settings
+	 * @return bool|ParserOutput ParserOutput or false if the revision was not found
 	 */
-	public function getParserOutput( ParserOptions $parserOptions, $oldid = null ) {
+	public function getParserOutput( ParserOptions $parserOptions, $oldid = null,
+	                                 $forceParse = false ) {
 
-		$useParserCache = $this->shouldCheckParserCache( $parserOptions, $oldid );
+		$useParserCache =
+			( !$forceParse ) && $this->shouldCheckParserCache( $parserOptions, $oldid );
 		wfDebug( __METHOD__ .
 			': using parser cache: ' . ( $useParserCache ? 'yes' : 'no' ) . "\n" );
 		if ( $parserOptions->getStubThreshold() ) {
@@ -1834,7 +1836,8 @@ class WikiPage implements Page, IDBAccessObject {
 					ContentHandler::runLegacyHooks( 'ArticleSaveComplete', $params );
 					Hooks::run( 'PageContentSaveComplete', $params );
 				}
-			)
+			),
+			DeferredUpdates::PRESEND
 		);
 
 		return $status;
@@ -1959,7 +1962,8 @@ class WikiPage implements Page, IDBAccessObject {
 					Hooks::run( 'PageContentSaveComplete', $params );
 
 				}
-			)
+			),
+			DeferredUpdates::PRESEND
 		);
 
 		return $status;
@@ -2925,6 +2929,8 @@ class WikiPage implements Page, IDBAccessObject {
 			],
 			__METHOD__
 		);
+		// Save this so we can pass it to the ArticleDeleteComplete hook.
+		$archivedRevisionCount = $dbw->affectedRows();
 
 		// Now that it's safely backed up, delete it
 		$dbw->delete( 'page', [ 'page_id' => $id ], __METHOD__ );
@@ -2955,7 +2961,7 @@ class WikiPage implements Page, IDBAccessObject {
 		$this->doDeleteUpdates( $id, $content );
 
 		Hooks::run( 'ArticleDeleteComplete',
-			[ &$this, &$user, $reason, $id, $content, $logEntry ] );
+			[ &$this, &$user, $reason, $id, $content, $logEntry, $archivedRevisionCount ] );
 		$status->value = $logid;
 
 		// Show log excerpt on 404 pages rather than just a link

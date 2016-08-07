@@ -608,6 +608,7 @@ $reason: the reason the article was deleted
 $id: id of the article that was deleted
 $content: the Content of the deleted page
 $logEntry: the ManualLogEntry used to record the deletion
+$archivedRevisionCount: the number of revisions archived during the deletion
 
 'ArticleEditUpdateNewTalk': Before updating user_newtalk when a user talk page
 was changed.
@@ -1103,6 +1104,9 @@ $row: the DB row for this line
 $id: User identifier
 $title: User page title
 &$tools: Array of tool links
+$specialPage: SpecialPage instance for context and services. Can be either
+  SpecialContributions or DeletedContributionsPage. Extensions should type
+  hint against a generic SpecialPage though.
 
 'ConvertContent': Called by AbstractContent::convert when a conversion to
 another content model is requested.
@@ -2619,6 +2623,18 @@ $term: Search term string
 search results.
 $title: Current Title object being displayed in search results.
 &$id: Revision ID (default is false, for latest)
+
+'SearchIndexFields': Add fields to search index mapping.
+&$fields: Array of fields, all implement SearchIndexField
+$engine: SearchEngine instance for which mapping is being built.
+
+'SearchDataForIndex': Add data to search document. Allows to add any data to
+the field map used to index the document.
+&$fields: Array of name => value pairs for fields
+$handler: ContentHandler for the content being indexed
+$page: WikiPage that is being indexed
+$output: ParserOutput that is produced from the page
+$engine: SearchEngine for which the indexing is intended
 
 'SecondaryDataUpdates': Allows modification of the list of DataUpdates to
 perform when page content is modified. Currently called by

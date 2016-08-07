@@ -267,13 +267,13 @@ class SpecialContributions extends IncludableSpecialPage {
 			}
 			$user = htmlspecialchars( $userObj->getName() );
 		} else {
-			$user = Linker::link( $userObj->getUserPage(), htmlspecialchars( $userObj->getName() ) );
+			$user = $this->getLinkRenderer()->makeLink( $userObj->getUserPage(), $userObj->getName() );
 		}
 		$nt = $userObj->getUserPage();
 		$talk = $userObj->getTalkPage();
 		$links = '';
 		if ( $talk ) {
-			$tools = $this->getUserLinks( $nt, $talk, $userObj );
+			$tools = self::getUserLinks( $this, $userObj );
 			$links = $this->getLanguage()->pipeList( $tools );
 
 			// Show a note if the user is blocked and display the last block log entry.
@@ -313,86 +313,93 @@ class SpecialContributions extends IncludableSpecialPage {
 
 	/**
 	 * Links to different places.
-	 * @param Title $userpage Target user page
-	 * @param Title $talkpage Talk page
+	 *
+	 * @note This function is also called in DeletedContributionsPage
+	 * @param SpecialPage $sp SpecialPage instance, for context
 	 * @param User $target Target user object
 	 * @return array
 	 */
-	public function getUserLinks( Title $userpage, Title $talkpage, User $target ) {
+	public static function getUserLinks( SpecialPage $sp, User $target ) {
 
 		$id = $target->getId();
 		$username = $target->getName();
+		$userpage = $target->getUserPage();
+		$talkpage = $target->getTalkPage();
 
-		$tools[] = Linker::link( $talkpage, $this->msg( 'sp-contributions-talk' )->escaped() );
+		$linkRenderer = $sp->getLinkRenderer();
+		$tools['user-talk'] = $linkRenderer->makeLink(
+			$talkpage,
+			$sp->msg( 'sp-contributions-talk' )->text()
+		);
 
 		if ( ( $id !== null ) || ( $id === null && IP::isIPAddress( $username ) ) ) {
-			if ( $this->getUser()->isAllowed( 'block' ) ) { # Block / Change block / Unblock links
+			if ( $sp->getUser()->isAllowed( 'block' ) ) { # Block / Change block / Unblock links
 				if ( $target->isBlocked() && $target->getBlock()->getType() != Block::TYPE_AUTO ) {
-					$tools[] = Linker::linkKnown( # Change block link
+					$tools['block'] = $linkRenderer->makeKnownLink( # Change block link
 						SpecialPage::getTitleFor( 'Block', $username ),
-						$this->msg( 'change-blocklink' )->escaped()
+						$sp->msg( 'change-blocklink' )->text()
 					);
-					$tools[] = Linker::linkKnown( # Unblock link
+					$tools['unblock'] = $linkRenderer->makeKnownLink( # Unblock link
 						SpecialPage::getTitleFor( 'Unblock', $username ),
-						$this->msg( 'unblocklink' )->escaped()
+						$sp->msg( 'unblocklink' )->text()
 					);
 				} else { # User is not blocked
-					$tools[] = Linker::linkKnown( # Block link
+					$tools['block'] = $linkRenderer->makeKnownLink( # Block link
 						SpecialPage::getTitleFor( 'Block', $username ),
-						$this->msg( 'blocklink' )->escaped()
+						$sp->msg( 'blocklink' )->text()
 					);
 				}
 			}
 
 			# Block log link
-			$tools[] = Linker::linkKnown(
+			$tools['log-block'] = $linkRenderer->makeKnownLink(
 				SpecialPage::getTitleFor( 'Log', 'block' ),
-				$this->msg( 'sp-contributions-blocklog' )->escaped(),
+				$sp->msg( 'sp-contributions-blocklog' )->text(),
 				[],
 				[ 'page' => $userpage->getPrefixedText() ]
 			);
 
 			# Suppression log link (bug 59120)
-			if ( $this->getUser()->isAllowed( 'suppressionlog' ) ) {
-				$tools[] = Linker::linkKnown(
+			if ( $sp->getUser()->isAllowed( 'suppressionlog' ) ) {
+				$tools['log-suppression'] = $linkRenderer->makeKnownLink(
 					SpecialPage::getTitleFor( 'Log', 'suppress' ),
-					$this->msg( 'sp-contributions-suppresslog' )->escaped(),
+					$sp->msg( 'sp-contributions-suppresslog' )->text(),
 					[],
 					[ 'offender' => $username ]
 				);
 			}
 		}
 		# Uploads
-		$tools[] = Linker::linkKnown(
+		$tools['uploads'] = $linkRenderer->makeKnownLink(
 			SpecialPage::getTitleFor( 'Listfiles', $username ),
-			$this->msg( 'sp-contributions-uploads' )->escaped()
+			$sp->msg( 'sp-contributions-uploads' )->text()
 		);
 
 		# Other logs link
-		$tools[] = Linker::linkKnown(
+		$tools['logs'] = $linkRenderer->makeKnownLink(
 			SpecialPage::getTitleFor( 'Log', $username ),
-			$this->msg( 'sp-contributions-logs' )->escaped()
+			$sp->msg( 'sp-contributions-logs' )->text()
 		);
 
 		# Add link to deleted user contributions for priviledged users
-		if ( $this->getUser()->isAllowed( 'deletedhistory' ) ) {
-			$tools[] = Linker::linkKnown(
+		if ( $sp->getUser()->isAllowed( 'deletedhistory' ) ) {
+			$tools['deletedcontribs'] = $linkRenderer->makeKnownLink(
 				SpecialPage::getTitleFor( 'DeletedContributions', $username ),
-				$this->msg( 'sp-contributions-deleted' )->escaped()
+				$sp->msg( 'sp-contributions-deleted' )->text()
 			);
 		}
 
 		# Add a link to change user rights for privileged users
 		$userrightsPage = new UserrightsPage();
-		$userrightsPage->setContext( $this->getContext() );
+		$userrightsPage->setContext( $sp->getContext() );
 		if ( $userrightsPage->userCanChangeRights( $target ) ) {
-			$tools[] = Linker::linkKnown(
+			$tools['userrights'] = $linkRenderer->makeKnownLink(
 				SpecialPage::getTitleFor( 'Userrights', $username ),
-				$this->msg( 'sp-contributions-userrights' )->escaped()
+				$sp->msg( 'sp-contributions-userrights' )->text()
 			);
 		}
 
-		Hooks::run( 'ContributionsToolLinks', [ $id, $userpage, &$tools ] );
+		Hooks::run( 'ContributionsToolLinks', [ $id, $userpage, &$tools, $sp ] );
 
 		return $tools;
 	}

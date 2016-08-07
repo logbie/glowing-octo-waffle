@@ -1196,6 +1196,7 @@ class Article implements Page {
 		$token = $user->getEditToken( $rcid );
 
 		$outputPage->preventClickjacking();
+		$outputPage->addModuleStyles( 'mediawiki.page.patrol' );
 		if ( $wgEnableAPI && $wgEnableWriteAPI && $user->isAllowed( 'writeapi' ) ) {
 			$outputPage->addModules( 'mediawiki.page.patrol.ajax' );
 		}
@@ -1438,14 +1439,13 @@ class Article implements Page {
 			: 'revision-info';
 
 		$outputPage = $context->getOutput();
-		$outputPage->addSubtitle( "<div id=\"mw-{$infomsg}\">" .
+		$revisionInfo = "<div id=\"mw-{$infomsg}\">" .
 			$context->msg( $infomsg, $td )
 				->rawParams( $userlinks )
 				->params( $revision->getId(), $tddate, $tdtime, $revision->getUserText() )
 				->rawParams( Linker::revComment( $revision, true, true ) )
 				->parse() .
-			"</div>"
-		);
+			"</div>";
 
 		$lnk = $current
 			? $context->msg( 'currentrevisionlink' )->escaped()
@@ -1517,10 +1517,12 @@ class Article implements Page {
 			$cdel .= ' ';
 		}
 
-		$outputPage->addSubtitle( "<div id=\"mw-revision-nav\">" . $cdel .
+		// the outer div is need for styling the revision info and nav in MobileFrontend
+		$outputPage->addSubtitle( "<div class=\"mw-revision\">" . $revisionInfo .
+			"<div id=\"mw-revision-nav\">" . $cdel .
 			$context->msg( 'revision-nav' )->rawParams(
 				$prevdiff, $prevlink, $lnk, $curdiff, $nextlink, $nextdiff
-			)->escaped() . "</div>" );
+			)->escaped() . "</div></div>" );
 	}
 
 	/**

@@ -228,14 +228,12 @@ class ObjectCache {
 			}
 		}
 
-		try {
-			// Make sure we actually have a DB backend before falling back to CACHE_DB
-			MediaWikiServices::getInstance()->getDBLoadBalancer();
-			$candidate = CACHE_DB;
-		} catch ( ServiceDisabledException $e ) {
+		if ( MediaWikiServices::getInstance()->isServiceDisabled( 'DBLoadBalancer' ) ) {
 			// The LoadBalancer is disabled, probably because
 			// MediaWikiServices::disableStorageBackend was called.
 			$candidate = CACHE_NONE;
+		} else {
+			$candidate = CACHE_DB;
 		}
 
 		return self::getInstance( $candidate );
@@ -280,7 +278,7 @@ class ObjectCache {
 	 * @param array $params [optional] Array key 'fallback' for $fallback.
 	 * @param int|string $fallback Fallback cache, e.g. (CACHE_NONE, "hash") (since 1.24)
 	 * @return BagOStuff
-	 * @deprecated 1.27
+	 * @deprecated since 1.27
 	 */
 	public static function newAccelerator( $params = [], $fallback = null ) {
 		if ( $fallback === null ) {

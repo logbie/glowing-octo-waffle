@@ -912,6 +912,44 @@ class User implements IDBAccessObject {
 	}
 
 	/**
+	 * Return the users who are members of the given group(s). In case of multiple groups,
+	 * users who are members of at least one of them are returned.
+	 *
+	 * @param string|array $groups A single group name or an array of group names
+	 * @param int $limit Max number of users to return. The actual limit will never exceed 5000
+	 *   records; larger values are ignored.
+	 * @param int $after ID the user to start after
+	 * @return UserArrayFromResult
+	 */
+	public static function findUsersByGroup( $groups, $limit = 5000, $after = null ) {
+		if ( $groups === [] ) {
+			return UserArrayFromResult::newFromIDs( [] );
+		}
+
+		$groups = array_unique( (array)$groups );
+		$limit = min( 5000, $limit );
+
+		$conds = [ 'ug_group' => $groups ];
+		if ( $after !== null ) {
+			$conds[] = 'ug_user > ' . (int)$after;
+		}
+
+		$dbr = wfGetDB( DB_SLAVE );
+		$ids = $dbr->selectFieldValues(
+			'user_groups',
+			'ug_user',
+			$conds,
+			__METHOD__,
+			[
+				'DISTINCT' => true,
+				'ORDER BY' => 'ug_user',
+				'LIMIT' => $limit,
+			]
+		) ?: [];
+		return UserArray::newFromIDs( $ids );
+	}
+
+	/**
 	 * Usernames which fail to pass this function will be blocked
 	 * from new account registrations, but may be used internally
 	 * either by batch processes or by user accounts which have
@@ -1349,8 +1387,6 @@ class User implements IDBAccessObject {
 	 */
 	protected function loadFromUserObject( $user ) {
 		$user->load();
-		$user->loadGroups();
-		$user->loadOptions();
 		foreach ( self::$mCacheVars as $var ) {
 			$this->$var = $user->$var;
 		}
@@ -2980,7 +3016,7 @@ class User implements IDBAccessObject {
 	 * @return string|bool User's current value for the option, or false if this option is disabled.
 	 * @see resetTokenFromOption()
 	 * @see getOption()
-	 * @deprecated 1.26 Applications should use the OAuth extension
+	 * @deprecated since 1.26 Applications should use the OAuth extension
 	 */
 	public function getTokenFromOption( $oname ) {
 		global $wgHiddenPrefs;
@@ -5123,12 +5159,20 @@ class User implements IDBAccessObject {
 				// If we actually have a slave server, the count is
 				// at least one behind because the current transaction
 				// has not been committed and replicated.
-				$this->initEditCount( 1 );
+				$this->mEditCount = $this->initEditCount( 1 );
 			} else {
 				// But if DB_SLAVE is selecting the master, then the
 				// count we just read includes the revision that was
 				// just added in the working transaction.
-				$this->initEditCount();
+				$this->mEditCount = $this->initEditCount();
+			}
+		} else {
+			if ( $this->mEditCount === null ) {
+				$this->getEditCount();
+				$dbr = wfGetDB( DB_SLAVE );
+				$this->mEditCount += ( $dbr !== $dbw ) ? 1 : 0;
+			} else {
+				$this->mEditCount++;
 			}
 		}
 		// Edit count in user cache too

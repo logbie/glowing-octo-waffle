@@ -341,7 +341,6 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 
 		// TODO: move global state into MediaWikiServices
 		RequestContext::resetMain();
-		MediaHandler::resetCache();
 		if ( session_id() !== '' ) {
 			session_write_close();
 			session_id( '' );
@@ -530,7 +529,6 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 
 		// TODO: move global state into MediaWikiServices
 		RequestContext::resetMain();
-		MediaHandler::resetCache();
 		if ( session_id() !== '' ) {
 			session_write_close();
 			session_id( '' );
@@ -1773,6 +1771,17 @@ abstract class MediaWikiTestCase extends PHPUnit_Framework_TestCase {
 	 */
 	public static function wfResetOutputBuffersBarrier( $buffer ) {
 		return $buffer;
+	}
+
+	/**
+	 * Create a temporary hook handler which will be reset by tearDown.
+	 * This replaces other handlers for the same hook.
+	 * @param string $hookName Hook name
+	 * @param mixed $handler Value suitable for a hook handler
+	 * @since 1.28
+	 */
+	protected function setTemporaryHook( $hookName, $handler ) {
+		$this->mergeMwGlobalArrayValue( 'wgHooks', [ $hookName => [ $handler ] ] );
 	}
 
 }

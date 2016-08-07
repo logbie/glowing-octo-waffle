@@ -610,7 +610,8 @@
 	"minoredit": "דאס איז א מינערדיגע ענדערונג",
 	"watchthis": "טוט אױפֿפּאַסן דעם בלאט",
 	"savearticle": "אויפהיטן בלאַט",
-	"publishpage": "פובליצירן בלאט",
+	"publishpage": "פובליקירן בלאַט",
+	"publishchanges": "פובליקירן ענדערונגען",
 	"preview": "פֿאראויסקוק",
 	"showpreview": "ווייזן פאָרױסקוק",
 	"showdiff": "ווײַז די ענדערונגען",
@@ -723,7 +724,7 @@
 	"content-json-empty-object": "ליידיגער אביעקט",
 	"content-json-empty-array": "ליידיגער אריי",
 	"duplicate-args-warning": "<strong>ווארענונג:</strong> [[:$1]] רופט [[:$2]] מיט מער ווי איין ווערט פארן פאראמעטער \"$3\". נאר דעם לעצטן ווערט וועט מען ניצן.",
-	"duplicate-args-category": "בלעטער וואס ניצן געטאפלטע ארגומענטן אין מוסטער רופן",
+	"duplicate-args-category": "בלעטער וואס ניצן געטאפלטע ארגומענטן אין א מוסטער־רוף",
 	"duplicate-args-category-desc": "דער בלאט אנטהאלט מוסטער־אויפרופן וואס ניצן דופליקאטן פון ארגומענטן, ווי למשל <code><nowiki>{{foo|bar=1|bar=2}}</nowiki></code> or <code><nowiki>{{foo|bar|1=baz}}</nowiki></code>.",
 	"expensive-parserfunction-warning": "'''אזהרה:''' דער בלאט אנטהאלט צופיל טייערע פארזירער רופן.\n\nער דארף האבן ווינציגער פון  $2 {{PLURAL:$2|רוף|רופן}}, אבער אצינד {{PLURAL:$1|איז דא $1 רוף|זענען דא $1 רופן}}.",
 	"expensive-parserfunction-category": "בלעטער מיט צופֿיל טייערע פאַרזער פֿונקציאן רופֿן",
@@ -2336,6 +2337,7 @@
 	"tooltip-ca-nstab-category": "באקוקט דעם קאטעגאריע בלאט",
 	"tooltip-minoredit": "באצייכענען דאס אלס מינערדיגע ענדערונג",
 	"tooltip-save": "אויפֿהיטן אייערע ענדערונגען",
+	"tooltip-publish": "פובליקירן אייערע ענדערונגען",
 	"tooltip-preview": "פֿארויסדיגע ווײַזונג, זײַט אזוי גוט באניצט די געלעגנהייט פֿארן אויפֿהיטן!",
 	"tooltip-diff": "ווײַזן אייערע ענדערונגען צום טעקסט",
 	"tooltip-compareselectedversions": "פארגלײַכם די צוויי ווערסיעס פון דעם בלאט",
@@ -3165,5 +3167,6 @@
 	"log-action-filter-upload": "טיפ ארויפֿלאד:",
 	"log-action-filter-all": "אַלע",
 	"log-action-filter-delete-delete": "אויסמעקן בלאט",
+	"log-action-filter-import-interwiki": "אריבערוויקי אימפארט",
 	"log-action-filter-protect-unprotect": "אראפנעמען שיץ"
 }

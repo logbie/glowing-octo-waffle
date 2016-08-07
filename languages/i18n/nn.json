@@ -25,7 +25,8 @@
 			"Macofe",
 			"Chameleon222",
 			"Matma Rex",
-			"Mortensson"
+			"Mortensson",
+			"Danmichaelo"
 		]
 	},
 	"tog-underline": "Strek under lenkjer:",
@@ -551,6 +552,8 @@
 	"minoredit": "Småplukk",
 	"watchthis": "Overvak sida",
 	"savearticle": "Lagra sida",
+	"publishpage": "Publiser sida",
+	"publishchanges": "Publiser endringar",
 	"preview": "Førehandsvising",
 	"showpreview": "Førehandsvis",
 	"showdiff": "Sjå skilnader",
@@ -3018,7 +3021,7 @@
 	"duration-centuries": "$1 {{PLURAL:$1|hundreår|hundreår}}",
 	"duration-millennia": "$1 {{PLURAL:$1|tusenår|tusenår}}",
 	"rotate-comment": "Biletet vart dreitt $1{{PLURAL:$1|°}} med klokka",
-	"limitreport-title": "Profildata for analysatoren:",
+	"limitreport-title": "Profildata for parseren:",
 	"limitreport-cputime": "CPU-tidsbruk",
 	"limitreport-cputime-value": "{{PLURAL:$1|eitt sekund|$1 sekund}}",
 	"limitreport-walltime-value": "{{PLURAL:$1|eitt sekund|$1 sekund}}",
